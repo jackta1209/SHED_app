@@ -9,38 +9,273 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ToolsRouteImport } from './routes/tools'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as RoutineRouteImport } from './routes/routine'
+import { Route as RemindersRouteImport } from './routes/reminders'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as JournalRouteImport } from './routes/journal'
+import { Route as HistoryRouteImport } from './routes/history'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as AppearanceRouteImport } from './routes/appearance'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SessionNewRouteImport } from './routes/session.new'
+import { Route as SessionIdRouteImport } from './routes/session.$id'
+import { Route as ProfileSetupRouteImport } from './routes/profile.setup'
+import { Route as SessionIdReflectRouteImport } from './routes/session.$id.reflect'
 
+const ToolsRoute = ToolsRouteImport.update({
+  id: '/tools',
+  path: '/tools',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoutineRoute = RoutineRouteImport.update({
+  id: '/routine',
+  path: '/routine',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemindersRoute = RemindersRouteImport.update({
+  id: '/reminders',
+  path: '/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JournalRoute = JournalRouteImport.update({
+  id: '/journal',
+  path: '/journal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppearanceRoute = AppearanceRouteImport.update({
+  id: '/appearance',
+  path: '/appearance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SessionNewRoute = SessionNewRouteImport.update({
+  id: '/session/new',
+  path: '/session/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SessionIdRoute = SessionIdRouteImport.update({
+  id: '/session/$id',
+  path: '/session/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileSetupRoute = ProfileSetupRouteImport.update({
+  id: '/profile/setup',
+  path: '/profile/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SessionIdReflectRoute = SessionIdReflectRouteImport.update({
+  id: '/reflect',
+  path: '/reflect',
+  getParentRoute: () => SessionIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/appearance': typeof AppearanceRoute
+  '/dashboard': typeof DashboardRoute
+  '/history': typeof HistoryRoute
+  '/journal': typeof JournalRoute
+  '/login': typeof LoginRoute
+  '/reminders': typeof RemindersRoute
+  '/routine': typeof RoutineRoute
+  '/settings': typeof SettingsRoute
+  '/tools': typeof ToolsRoute
+  '/profile/setup': typeof ProfileSetupRoute
+  '/session/$id': typeof SessionIdRouteWithChildren
+  '/session/new': typeof SessionNewRoute
+  '/session/$id/reflect': typeof SessionIdReflectRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/appearance': typeof AppearanceRoute
+  '/dashboard': typeof DashboardRoute
+  '/history': typeof HistoryRoute
+  '/journal': typeof JournalRoute
+  '/login': typeof LoginRoute
+  '/reminders': typeof RemindersRoute
+  '/routine': typeof RoutineRoute
+  '/settings': typeof SettingsRoute
+  '/tools': typeof ToolsRoute
+  '/profile/setup': typeof ProfileSetupRoute
+  '/session/$id': typeof SessionIdRouteWithChildren
+  '/session/new': typeof SessionNewRoute
+  '/session/$id/reflect': typeof SessionIdReflectRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/appearance': typeof AppearanceRoute
+  '/dashboard': typeof DashboardRoute
+  '/history': typeof HistoryRoute
+  '/journal': typeof JournalRoute
+  '/login': typeof LoginRoute
+  '/reminders': typeof RemindersRoute
+  '/routine': typeof RoutineRoute
+  '/settings': typeof SettingsRoute
+  '/tools': typeof ToolsRoute
+  '/profile/setup': typeof ProfileSetupRoute
+  '/session/$id': typeof SessionIdRouteWithChildren
+  '/session/new': typeof SessionNewRoute
+  '/session/$id/reflect': typeof SessionIdReflectRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/appearance'
+    | '/dashboard'
+    | '/history'
+    | '/journal'
+    | '/login'
+    | '/reminders'
+    | '/routine'
+    | '/settings'
+    | '/tools'
+    | '/profile/setup'
+    | '/session/$id'
+    | '/session/new'
+    | '/session/$id/reflect'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/appearance'
+    | '/dashboard'
+    | '/history'
+    | '/journal'
+    | '/login'
+    | '/reminders'
+    | '/routine'
+    | '/settings'
+    | '/tools'
+    | '/profile/setup'
+    | '/session/$id'
+    | '/session/new'
+    | '/session/$id/reflect'
+  id:
+    | '__root__'
+    | '/'
+    | '/appearance'
+    | '/dashboard'
+    | '/history'
+    | '/journal'
+    | '/login'
+    | '/reminders'
+    | '/routine'
+    | '/settings'
+    | '/tools'
+    | '/profile/setup'
+    | '/session/$id'
+    | '/session/new'
+    | '/session/$id/reflect'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppearanceRoute: typeof AppearanceRoute
+  DashboardRoute: typeof DashboardRoute
+  HistoryRoute: typeof HistoryRoute
+  JournalRoute: typeof JournalRoute
+  LoginRoute: typeof LoginRoute
+  RemindersRoute: typeof RemindersRoute
+  RoutineRoute: typeof RoutineRoute
+  SettingsRoute: typeof SettingsRoute
+  ToolsRoute: typeof ToolsRoute
+  ProfileSetupRoute: typeof ProfileSetupRoute
+  SessionIdRoute: typeof SessionIdRouteWithChildren
+  SessionNewRoute: typeof SessionNewRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tools': {
+      id: '/tools'
+      path: '/tools'
+      fullPath: '/tools'
+      preLoaderRoute: typeof ToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/routine': {
+      id: '/routine'
+      path: '/routine'
+      fullPath: '/routine'
+      preLoaderRoute: typeof RoutineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reminders': {
+      id: '/reminders'
+      path: '/reminders'
+      fullPath: '/reminders'
+      preLoaderRoute: typeof RemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/journal': {
+      id: '/journal'
+      path: '/journal'
+      fullPath: '/journal'
+      preLoaderRoute: typeof JournalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/appearance': {
+      id: '/appearance'
+      path: '/appearance'
+      fullPath: '/appearance'
+      preLoaderRoute: typeof AppearanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +283,63 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/session/new': {
+      id: '/session/new'
+      path: '/session/new'
+      fullPath: '/session/new'
+      preLoaderRoute: typeof SessionNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/session/$id': {
+      id: '/session/$id'
+      path: '/session/$id'
+      fullPath: '/session/$id'
+      preLoaderRoute: typeof SessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile/setup': {
+      id: '/profile/setup'
+      path: '/profile/setup'
+      fullPath: '/profile/setup'
+      preLoaderRoute: typeof ProfileSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/session/$id/reflect': {
+      id: '/session/$id/reflect'
+      path: '/reflect'
+      fullPath: '/session/$id/reflect'
+      preLoaderRoute: typeof SessionIdReflectRouteImport
+      parentRoute: typeof SessionIdRoute
+    }
   }
 }
 
+interface SessionIdRouteChildren {
+  SessionIdReflectRoute: typeof SessionIdReflectRoute
+}
+
+const SessionIdRouteChildren: SessionIdRouteChildren = {
+  SessionIdReflectRoute: SessionIdReflectRoute,
+}
+
+const SessionIdRouteWithChildren = SessionIdRoute._addFileChildren(
+  SessionIdRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppearanceRoute: AppearanceRoute,
+  DashboardRoute: DashboardRoute,
+  HistoryRoute: HistoryRoute,
+  JournalRoute: JournalRoute,
+  LoginRoute: LoginRoute,
+  RemindersRoute: RemindersRoute,
+  RoutineRoute: RoutineRoute,
+  SettingsRoute: SettingsRoute,
+  ToolsRoute: ToolsRoute,
+  ProfileSetupRoute: ProfileSetupRoute,
+  SessionIdRoute: SessionIdRouteWithChildren,
+  SessionNewRoute: SessionNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
