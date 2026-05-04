@@ -46,6 +46,7 @@ function Routine() {
 
   return (
     <AppLayout>
+      <BackButton fallback="/dashboard" />
       <PageHeader eyebrow="Plan" title="AI practice routine" subtitle="A structured plan tuned to your profile and recent sessions." />
 
       <form onSubmit={gen} className="space-y-4 rounded-2xl border border-border bg-card p-4">
