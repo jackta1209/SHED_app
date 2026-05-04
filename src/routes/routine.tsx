@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles } from "lucide-react";
+import { BackButton } from "@/components/BackButton";
 
 export const Route = createFileRoute("/routine")({
   component: () => <AuthGate><Routine /></AuthGate>,
