@@ -49,6 +49,7 @@ function Reminders() {
 
   return (
     <AppLayout>
+      <BackButton fallback="/settings" />
       <PageHeader eyebrow="Adjust" title="Reminders" subtitle="A nudge when it's time to practice." />
 
       <div className="space-y-5 rounded-2xl border border-border bg-card p-5">
