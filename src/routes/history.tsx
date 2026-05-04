@@ -4,6 +4,8 @@ import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { AuthGate } from "@/components/AuthGate";
 import { useAuth } from "@/lib/auth-context";
 import { sessionStore, PRACTICE_CATEGORIES, type PracticeCategory, type PracticeSession } from "@/lib/store";
+import { Link } from "@tanstack/react-router";
+import { BackButton } from "@/components/BackButton";
 
 export const Route = createFileRoute("/history")({
   component: () => <AuthGate><History /></AuthGate>,
@@ -25,6 +27,7 @@ function History() {
 
   return (
     <AppLayout>
+      <BackButton fallback="/dashboard" />
       <PageHeader eyebrow="Track" title="Practice history" subtitle={`${sessions.length} completed sessions`} />
 
       <div className="mb-3 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
@@ -44,7 +47,8 @@ function History() {
       ) : (
         <ul className="space-y-3">
           {filtered.map((s) => (
-            <li key={s.id} className="rounded-xl border border-border bg-card p-4">
+            <li key={s.id}>
+            <Link to="/session/$id/summary" params={{ id: s.id }} className="block rounded-xl border border-border bg-card p-4 hover:bg-accent">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{s.category}</p>
                 <p className="text-[11px] text-muted-foreground">{new Date(s.date).toLocaleDateString()}</p>
@@ -58,6 +62,7 @@ function History() {
               </div>
               {s.what_improved && <p className="mt-3 text-xs text-muted-foreground"><span className="uppercase tracking-wider">Improved:</span> {s.what_improved}</p>}
               {s.next_step && <p className="mt-1 text-xs text-muted-foreground"><span className="uppercase tracking-wider">Next:</span> {s.next_step}</p>}
+            </Link>
             </li>
           ))}
         </ul>

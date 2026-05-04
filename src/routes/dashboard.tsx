@@ -4,8 +4,8 @@ import { AppLayout, Section } from "@/components/AppLayout";
 import { AuthGate } from "@/components/AuthGate";
 import { useAuth } from "@/lib/auth-context";
 import {
-  profileStore, sessionStore, weeklyStats, currentStreak,
-  type MusicianProfile, type PracticeSession,
+  profileStore, sessionStore, prefsStore, activeSessionStore, weeklyStats, currentStreak,
+  type MusicianProfile, type PracticeSession, type ActiveSessionState,
 } from "@/lib/store";
 import { ArrowRight, Sparkles, Play, Flame } from "lucide-react";
 
@@ -18,16 +18,21 @@ function Dashboard() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<MusicianProfile | null>(null);
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
+  const [nextFocus, setNextFocus] = useState<string | undefined>();
+  const [active, setActive] = useState<ActiveSessionState | null>(null);
 
   useEffect(() => {
     if (!user) return;
     setProfile(profileStore.get(user.id));
     setSessions(sessionStore.list(user.id));
+    setNextFocus(prefsStore.get(user.id).next_focus);
+    setActive(activeSessionStore.get(user.id));
   }, [user]);
 
   const stats = weeklyStats(sessions);
   const streak = currentStreak(sessions);
   const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  const completed = sessions.filter((s) => s.completed);
 
   return (
     <AppLayout>
@@ -41,12 +46,32 @@ function Dashboard() {
         )}
       </header>
 
-      {/* Today's focus */}
+      {active && (
+        <Link
+          to="/session/$id"
+          params={{ id: active.session_id }}
+          className="mb-4 flex items-center justify-between rounded-xl border border-primary/40 bg-primary/10 p-4"
+        >
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-primary">Session in progress</p>
+            <p className="mt-1 text-sm">Tap to resume</p>
+          </div>
+          <ArrowRight size={16} className="text-primary" />
+        </Link>
+      )}
+
       <div className="mb-5 rounded-2xl border border-border bg-card p-5">
         <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Today's focus</p>
-        <p className="mt-2 font-serif text-2xl leading-tight">
-          Aim for <span className="text-primary">{profile?.preferred_practice_duration ?? 45} minutes</span> of focused work.
-        </p>
+        {nextFocus ? (
+          <p className="mt-2 font-serif text-2xl leading-tight">{nextFocus}</p>
+        ) : (
+          <p className="mt-2 font-serif text-2xl leading-tight">
+            Aim for <span className="text-primary">{profile?.preferred_practice_duration ?? 45} minutes</span> of focused work.
+          </p>
+        )}
+        {nextFocus && (
+          <p className="mt-1 text-xs text-muted-foreground">From your last session's reflection.</p>
+        )}
         <div className="mt-5 grid grid-cols-2 gap-3">
           <Link to="/session/new" className="flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-3 text-sm font-medium text-primary-foreground">
             <Play size={16} /> Start practice
@@ -57,13 +82,11 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Stats */}
       <Section title="This week">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Stat label="Minutes" value={stats.minutes.toString()} />
           <Stat label="Sessions" value={stats.count.toString()} />
           <Stat label="Avg focus" value={stats.focus ? stats.focus.toFixed(1) : "—"} suffix="/5" />
-          <Stat label="Avg progress" value={stats.progress ? stats.progress.toFixed(1) : "—"} suffix="/5" />
         </div>
       </Section>
 
@@ -80,15 +103,15 @@ function Dashboard() {
       </div>
 
       <Section title="Recent sessions" action={<Link to="/history" className="text-xs text-muted-foreground hover:text-foreground">All</Link>}>
-        {sessions.filter((s) => s.completed).length === 0 ? (
+        {completed.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            No sessions yet. Your first one will live here.
+            No sessions yet. Start your first focused practice session.
           </div>
         ) : (
           <ul className="space-y-2">
-            {sessions.filter((s) => s.completed).slice(0, 4).map((s) => (
+            {completed.slice(0, 4).map((s) => (
               <li key={s.id}>
-                <Link to="/history" className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 hover:bg-accent">
+                <Link to="/session/$id/summary" params={{ id: s.id }} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 hover:bg-accent">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.category}</p>
                     <p className="mt-0.5 truncate text-sm">{s.session_goal || "Practice"}</p>

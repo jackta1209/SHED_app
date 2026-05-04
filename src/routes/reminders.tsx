@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { BackButton } from "@/components/BackButton";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -48,6 +49,7 @@ function Reminders() {
 
   return (
     <AppLayout>
+      <BackButton fallback="/settings" />
       <PageHeader eyebrow="Adjust" title="Reminders" subtitle="A nudge when it's time to practice." />
 
       <div className="space-y-5 rounded-2xl border border-border bg-card p-5">

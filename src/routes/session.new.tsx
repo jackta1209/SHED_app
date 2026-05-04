@@ -1,13 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { AuthGate } from "@/components/AuthGate";
 import { useAuth } from "@/lib/auth-context";
-import { PRACTICE_CATEGORIES, type PracticeCategory, sessionStore, uid } from "@/lib/store";
+import {
+  sessionStore, uid, allCategories, customCategoriesStore, prefsStore,
+  type PracticeCategory,
+} from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { BackButton } from "@/components/BackButton";
+import { Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/session/new")({
   component: () => <AuthGate><NewSession /></AuthGate>,
@@ -23,6 +28,16 @@ function NewSession() {
   const [category, setCategory] = useState<PracticeCategory>("Technique");
   const [goal, setGoal] = useState("");
   const [notes, setNotes] = useState("");
+  const [newCat, setNewCat] = useState("");
+  const [cats, setCats] = useState<string[]>([]);
+  const [nextFocus, setNextFocus] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!user) return;
+    setCats(allCategories(user.id));
+    const prefs = prefsStore.get(user.id);
+    setNextFocus(prefs.next_focus);
+  }, [user]);
 
   function start(e: React.FormEvent) {
     e.preventDefault();
@@ -37,9 +52,33 @@ function NewSession() {
     navigate({ to: "/session/$id", params: { id } });
   }
 
+  function addCategory() {
+    if (!user || !newCat.trim()) return;
+    customCategoriesStore.add(user.id, newCat.trim());
+    setCats(allCategories(user.id));
+    setCategory(newCat.trim());
+    setNewCat("");
+  }
+
   return (
     <AppLayout>
+      <BackButton fallback="/dashboard" />
       <PageHeader eyebrow="Plan" title="Set the session." subtitle="Choose your duration, category, and a single clear goal." />
+
+      {nextFocus && (
+        <button
+          type="button"
+          onClick={() => setGoal(nextFocus)}
+          className="mb-5 flex w-full items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3 text-left"
+        >
+          <Sparkles size={14} className="mt-0.5 text-primary" />
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-primary">Suggested next focus</p>
+            <p className="mt-0.5 text-sm">{nextFocus}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Tap to use as session goal</p>
+          </div>
+        </button>
+      )}
 
       <form onSubmit={start} className="space-y-6">
         <div>
@@ -64,7 +103,7 @@ function NewSession() {
         <div>
           <Label className="text-xs uppercase tracking-wider text-muted-foreground">Category</Label>
           <div className="mt-3 flex flex-wrap gap-2">
-            {PRACTICE_CATEGORIES.map((c) => (
+            {cats.map((c) => (
               <button
                 key={c}
                 type="button"
@@ -76,6 +115,10 @@ function NewSession() {
                 {c}
               </button>
             ))}
+          </div>
+          <div className="mt-2 flex gap-2">
+            <Input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Add your own" className="bg-card h-9 text-xs" />
+            <Button type="button" variant="secondary" onClick={addCategory} size="sm">Add</Button>
           </div>
         </div>
 

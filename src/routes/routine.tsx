@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles } from "lucide-react";
+import { BackButton } from "@/components/BackButton";
 
 export const Route = createFileRoute("/routine")({
   component: () => <AuthGate><Routine /></AuthGate>,
@@ -45,6 +46,7 @@ function Routine() {
 
   return (
     <AppLayout>
+      <BackButton fallback="/dashboard" />
       <PageHeader eyebrow="Plan" title="AI practice routine" subtitle="A structured plan tuned to your profile and recent sessions." />
 
       <form onSubmit={gen} className="space-y-4 rounded-2xl border border-border bg-card p-4">
