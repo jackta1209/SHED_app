@@ -22,6 +22,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SessionNewRouteImport } from './routes/session.new'
 import { Route as SessionIdRouteImport } from './routes/session.$id'
 import { Route as ProfileSetupRouteImport } from './routes/profile.setup'
+import { Route as SessionIdSummaryRouteImport } from './routes/session.$id.summary'
 import { Route as SessionIdReflectRouteImport } from './routes/session.$id.reflect'
 
 const ToolsRoute = ToolsRouteImport.update({
@@ -89,6 +90,11 @@ const ProfileSetupRoute = ProfileSetupRouteImport.update({
   path: '/profile/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SessionIdSummaryRoute = SessionIdSummaryRouteImport.update({
+  id: '/summary',
+  path: '/summary',
+  getParentRoute: () => SessionIdRoute,
+} as any)
 const SessionIdReflectRoute = SessionIdReflectRouteImport.update({
   id: '/reflect',
   path: '/reflect',
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/session/$id': typeof SessionIdRouteWithChildren
   '/session/new': typeof SessionNewRoute
   '/session/$id/reflect': typeof SessionIdReflectRoute
+  '/session/$id/summary': typeof SessionIdSummaryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/session/$id': typeof SessionIdRouteWithChildren
   '/session/new': typeof SessionNewRoute
   '/session/$id/reflect': typeof SessionIdReflectRoute
+  '/session/$id/summary': typeof SessionIdSummaryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/session/$id': typeof SessionIdRouteWithChildren
   '/session/new': typeof SessionNewRoute
   '/session/$id/reflect': typeof SessionIdReflectRoute
+  '/session/$id/summary': typeof SessionIdSummaryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/session/$id'
     | '/session/new'
     | '/session/$id/reflect'
+    | '/session/$id/summary'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/session/$id'
     | '/session/new'
     | '/session/$id/reflect'
+    | '/session/$id/summary'
   id:
     | '__root__'
     | '/'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/session/$id'
     | '/session/new'
     | '/session/$id/reflect'
+    | '/session/$id/summary'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -304,6 +316,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileSetupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/session/$id/summary': {
+      id: '/session/$id/summary'
+      path: '/summary'
+      fullPath: '/session/$id/summary'
+      preLoaderRoute: typeof SessionIdSummaryRouteImport
+      parentRoute: typeof SessionIdRoute
+    }
     '/session/$id/reflect': {
       id: '/session/$id/reflect'
       path: '/reflect'
@@ -316,10 +335,12 @@ declare module '@tanstack/react-router' {
 
 interface SessionIdRouteChildren {
   SessionIdReflectRoute: typeof SessionIdReflectRoute
+  SessionIdSummaryRoute: typeof SessionIdSummaryRoute
 }
 
 const SessionIdRouteChildren: SessionIdRouteChildren = {
   SessionIdReflectRoute: SessionIdReflectRoute,
+  SessionIdSummaryRoute: SessionIdSummaryRoute,
 }
 
 const SessionIdRouteWithChildren = SessionIdRoute._addFileChildren(
