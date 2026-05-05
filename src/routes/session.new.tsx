@@ -43,11 +43,13 @@ function NewSession() {
     e.preventDefault();
     if (!user) return;
     const id = uid();
+    const now = new Date().toISOString();
     sessionStore.add({
-      id, user_id: user.id, date: new Date().toISOString(),
-      duration_minutes: duration, category, session_goal: goal,
+      id, user_id: user.id, date: now,
+      duration_minutes: duration, planned_duration_minutes: duration,
+      start_time: now, status: "active", category, session_goal: goal,
       pre_session_notes: notes, distractions_count: 0, completed: false,
-      created_at: new Date().toISOString(),
+      created_at: now,
     });
     navigate({ to: "/session/$id", params: { id } });
   }
