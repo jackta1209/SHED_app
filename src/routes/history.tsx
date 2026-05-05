@@ -18,7 +18,7 @@ function History() {
   const [filter, setFilter] = useState<PracticeCategory | "All">("All");
   const [minRating, setMinRating] = useState(0);
 
-  useEffect(() => { if (user) setSessions(sessionStore.list(user.id).filter((s) => s.completed)); }, [user]);
+  useEffect(() => { if (user) setSessions(sessionStore.list(user.id).filter((s) => s.status === "completed" || s.completed)); }, [user]);
 
   const filtered = useMemo(() => sessions.filter((s) =>
     (filter === "All" || s.category === filter) &&
@@ -55,7 +55,7 @@ function History() {
               </div>
               <p className="mt-1 font-serif text-lg">{s.session_goal}</p>
               <div className="mt-3 grid grid-cols-4 gap-2 text-xs">
-                <Mini label="Min" value={`${s.duration_minutes}`} />
+                <Mini label="Min" value={`${s.practice_minutes ?? s.duration_minutes}`} />
                 <Mini label="Focus" value={`${s.focus_rating ?? "—"}/5`} />
                 <Mini label="Progress" value={`${s.progress_rating ?? "—"}/5`} />
                 <Mini label="Distract" value={`${s.distractions_count}`} />
