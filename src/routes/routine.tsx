@@ -33,7 +33,7 @@ function Routine() {
     e.preventDefault();
     if (!user) return;
     const profile = profileStore.get(user.id);
-    const recent = sessionStore.list(user.id).filter((s) => s.completed).slice(0, 5);
+    const recent = sessionStore.list(user.id).filter((s) => s.status === "completed" || s.completed).slice(0, 5);
     const generated = generateRoutine({ minutes, focus, profile, recent });
     const r: AIRoutine = {
       id: uid(), user_id: user.id, created_at: new Date().toISOString(),
