@@ -305,10 +305,10 @@ function ActiveSession() {
         </div>
 
         <div className="flex items-center justify-center gap-3">
-          <Button variant="secondary" className="h-12 flex-1" onClick={() => setRunning((r) => !r)}>
+          <Button type="button" variant="secondary" className="h-12 flex-1" onClick={() => setRunning((r) => !r)}>
             {running ? <><Pause size={16} className="mr-2" /> Pause</> : <><Play size={16} className="mr-2" /> Resume</>}
           </Button>
-          <Button className="h-12 flex-1" onClick={finish}>Finish</Button>
+          <Button type="button" className="h-12 flex-1" onClick={finish}>Finish Session</Button>
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
