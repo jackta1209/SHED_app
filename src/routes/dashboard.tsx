@@ -32,7 +32,7 @@ function Dashboard() {
   const stats = weeklyStats(sessions);
   const streak = currentStreak(sessions);
   const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-  const completed = sessions.filter((s) => s.completed);
+  const completed = sessions.filter((s) => s.status === "completed" || s.completed);
 
   return (
     <AppLayout>
@@ -117,7 +117,7 @@ function Dashboard() {
                     <p className="mt-0.5 truncate text-sm">{s.session_goal || "Practice"}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-mono text-sm">{s.duration_minutes}m</p>
+                    <p className="font-mono text-sm">{s.practice_minutes ?? s.duration_minutes}m</p>
                     <p className="text-[11px] text-muted-foreground">{new Date(s.date).toLocaleDateString()}</p>
                   </div>
                   <ArrowRight size={14} className="text-muted-foreground" />
