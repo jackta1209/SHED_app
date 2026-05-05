@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -12,7 +12,18 @@ import {
 } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Pause, Play, X, AlertTriangle, Send, ChevronDown, ChevronUp, Gauge, Sparkles, FileMusic } from "lucide-react";
+import {
+  Pause,
+  Play,
+  X,
+  AlertTriangle,
+  Send,
+  ChevronDown,
+  ChevronUp,
+  Gauge,
+  Sparkles,
+  FileMusic,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Metronome } from "@/components/Metronome";
 
@@ -23,6 +34,7 @@ export const Route = createFileRoute("/session/$id")({
 
 function ActiveSession() {
   const { id } = Route.useParams();
+  const location = useLocation();
   const { user, prefs } = useAuth();
   const navigate = useNavigate();
   const [session, setSession] = useState<PracticeSession | null>(null);
@@ -34,14 +46,19 @@ function ActiveSession() {
   const [noteDraft, setNoteDraft] = useState("");
   const [sessionNotes, setSessionNotes] = useState<JournalEntry[]>([]);
   const [showMetronome, setShowMetronome] = useState(false);
+  const [metronomeStopSignal, setMetronomeStopSignal] = useState(0);
   const finishedRef = useRef(false);
   const alertedRef = useRef<{ ten: boolean; one: boolean; done: boolean }>({
-    ten: false, one: false, done: false,
+    ten: false,
+    one: false,
+    done: false,
   });
   const startedAtRef = useRef<number>(Date.now());
+  const isActiveSessionRoute = location.pathname === `/session/${id}`;
 
   // Load session + restore active state
   useEffect(() => {
+    if (!isActiveSessionRoute) return;
     if (!user) return;
     const s = sessionStore.get(user.id, id);
     if (!s) {
@@ -79,18 +96,18 @@ function ActiveSession() {
     }
 
     setSessionNotes(journalStore.forSession(user.id, id));
-  }, [id, user, navigate]);
+  }, [id, user, navigate, isActiveSessionRoute]);
 
   // Tick
   useEffect(() => {
-    if (!running) return;
+    if (!running || !isActiveSessionRoute) return;
     const t = setInterval(() => setRemaining((r) => Math.max(0, r - 1)), 1000);
     return () => clearInterval(t);
-  }, [running]);
+  }, [running, isActiveSessionRoute]);
 
   // Persist active state
   useEffect(() => {
-    if (!user || !session) return;
+    if (!user || !session || finishedRef.current || !isActiveSessionRoute) return;
     activeSessionStore.save({
       session_id: session.id,
       user_id: user.id,
@@ -102,10 +119,20 @@ function ActiveSession() {
       distractions,
       notes_draft: noteDraft,
     });
-  }, [user, session, running, remaining, distractions, noteDraft, totalSeconds]);
+  }, [
+    user,
+    session,
+    running,
+    remaining,
+    distractions,
+    noteDraft,
+    totalSeconds,
+    isActiveSessionRoute,
+  ]);
 
   // Distraction detection
   useEffect(() => {
+    if (!isActiveSessionRoute) return;
     function onHidden() {
       if (document.visibilityState === "hidden") {
         setDistractions((d) => d + 1);
@@ -114,17 +141,18 @@ function ActiveSession() {
     }
     document.addEventListener("visibilitychange", onHidden);
     return () => document.removeEventListener("visibilitychange", onHidden);
-  }, [strict]);
+  }, [strict, isActiveSessionRoute]);
 
   // Warn before unloading
   useEffect(() => {
+    if (!isActiveSessionRoute) return;
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  }, [isActiveSessionRoute]);
 
   // Timer alerts
   useEffect(() => {
@@ -161,9 +189,12 @@ function ActiveSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, session, totalSeconds]);
 
+  if (!isActiveSessionRoute) return <Outlet />;
   if (!session) return null;
 
-  const mm = Math.floor(remaining / 60).toString().padStart(2, "0");
+  const mm = Math.floor(remaining / 60)
+    .toString()
+    .padStart(2, "0");
   const ss = (remaining % 60).toString().padStart(2, "0");
   const pct = totalSeconds ? 1 - remaining / totalSeconds : 0;
 
@@ -206,24 +237,38 @@ function ActiveSession() {
     if (!session || !user) return;
     if (finishedRef.current) return;
     const fresh = sessionStore.get(user.id, session.id);
-    if (fresh?.completed) {
+    if (fresh?.status === "completed" || fresh?.completed) {
       finishedRef.current = true;
-      try { activeSessionStore.clear(user.id); } catch { /* noop */ }
+      try {
+        activeSessionStore.clear(user.id);
+      } catch {
+        /* noop */
+      }
       navigate({ to: "/session/$id/reflect", params: { id: session.id } });
       return;
     }
     finishedRef.current = true;
     setRunning(false);
+    setMetronomeStopSignal((n) => n + 1);
 
+    const now = new Date().toISOString();
     const elapsedSec = elapsedSeconds();
-    const elapsedMin = Math.max(1, Math.round(elapsedSec / 60));
-    const minutes = reason === "timer_complete"
-      ? session.duration_minutes
-      : Math.min(session.duration_minutes, elapsedMin);
+    const plannedMinutes = session.planned_duration_minutes ?? session.duration_minutes;
+    const practiceMinutes =
+      reason === "timer_complete"
+        ? plannedMinutes
+        : Math.max(1, Math.min(plannedMinutes, Math.ceil(elapsedSec / 60)));
 
     const final: PracticeSession = {
       ...session,
-      duration_minutes: minutes,
+      planned_duration_minutes: plannedMinutes,
+      duration_minutes: practiceMinutes,
+      practice_minutes: practiceMinutes,
+      elapsed_seconds: reason === "timer_complete" ? plannedMinutes * 60 : elapsedSec,
+      start_time: session.start_time ?? new Date(startedAtRef.current).toISOString(),
+      end_time: now,
+      status: "completed",
+      completion_method: reason,
       distractions_count: distractions,
       quick_notes: noteDraft || session.quick_notes,
       completed: true,
@@ -248,7 +293,10 @@ function ActiveSession() {
   }
 
   function abandon() {
-    if (!confirm("End this session without saving a reflection? Your quick notes will still be kept.")) return;
+    if (
+      !confirm("End this session without saving a reflection? Your quick notes will still be kept.")
+    )
+      return;
     if (user) activeSessionStore.clear(user.id);
     navigate({ to: "/dashboard" });
   }
@@ -258,10 +306,16 @@ function ActiveSession() {
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pb-8 pt-6">
         <div className="flex items-center justify-between">
           <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">{session.category}</p>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
+              {session.category}
+            </p>
             <p className="mt-1 max-w-[18rem] truncate text-sm">{session.session_goal}</p>
           </div>
-          <button onClick={abandon} aria-label="Close" className="rounded-full p-2 text-muted-foreground hover:text-foreground">
+          <button
+            onClick={abandon}
+            aria-label="Close"
+            className="rounded-full p-2 text-muted-foreground hover:text-foreground"
+          >
             <X size={18} />
           </button>
         </div>
@@ -269,10 +323,21 @@ function ActiveSession() {
         <div className="my-8 flex flex-col items-center">
           <div className="relative h-60 w-60">
             <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-              <circle cx="50" cy="50" r="46" fill="none" stroke="var(--color-border)" strokeWidth="2" />
               <circle
-                cx="50" cy="50" r="46" fill="none"
-                stroke="var(--color-primary)" strokeWidth="2"
+                cx="50"
+                cy="50"
+                r="46"
+                fill="none"
+                stroke="var(--color-border)"
+                strokeWidth="2"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="46"
+                fill="none"
+                stroke="var(--color-primary)"
+                strokeWidth="2"
                 strokeDasharray={`${2 * Math.PI * 46}`}
                 strokeDashoffset={`${2 * Math.PI * 46 * (1 - pct)}`}
                 strokeLinecap="round"
@@ -280,7 +345,9 @@ function ActiveSession() {
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <p className="font-mono text-6xl tracking-tight tabular-nums">{mm}:{ss}</p>
+              <p className="font-mono text-6xl tracking-tight tabular-nums">
+                {mm}:{ss}
+              </p>
               <p className="mt-2 text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
                 {running ? "Focused" : "Paused"}
               </p>
@@ -289,14 +356,32 @@ function ActiveSession() {
         </div>
 
         <div className="flex items-center justify-center gap-3">
-          <Button variant="secondary" className="h-12 flex-1" onClick={() => setRunning((r) => !r)}>
-            {running ? <><Pause size={16} className="mr-2" /> Pause</> : <><Play size={16} className="mr-2" /> Resume</>}
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-12 flex-1"
+            onClick={() => setRunning((r) => !r)}
+          >
+            {running ? (
+              <>
+                <Pause size={16} className="mr-2" /> Pause
+              </>
+            ) : (
+              <>
+                <Play size={16} className="mr-2" /> Resume
+              </>
+            )}
           </Button>
-          <Button className="h-12 flex-1" onClick={finish}>Finish</Button>
+          <Button type="button" className="h-12 flex-1" onClick={finish}>
+            Finish Session
+          </Button>
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <button onClick={() => setDistractions((d) => d + 1)} className="rounded-xl border border-border bg-card p-3 text-left">
+          <button
+            onClick={() => setDistractions((d) => d + 1)}
+            className="rounded-xl border border-border bg-card p-3 text-left"
+          >
             <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
               <AlertTriangle size={12} /> Distractions
             </div>
@@ -304,7 +389,9 @@ function ActiveSession() {
             <p className="text-[11px] text-muted-foreground">Tap to log</p>
           </button>
           <div className="rounded-xl border border-border bg-card p-3">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Strict focus</p>
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Strict focus
+            </p>
             <div className="mt-2 flex items-center justify-between">
               <span className="text-sm">{strict ? "On" : "Off"}</span>
               <Switch checked={strict} onCheckedChange={setStrict} />
@@ -316,7 +403,9 @@ function ActiveSession() {
         {/* Quick note */}
         <div className="mt-5 rounded-2xl border border-border bg-card p-3">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Quick note · {elapsedLabel()}</p>
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Quick note · {elapsedLabel()}
+            </p>
           </div>
           <textarea
             value={noteDraft}
@@ -326,7 +415,9 @@ function ActiveSession() {
             className="mt-2 w-full resize-none rounded-lg border border-border bg-background p-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <div className="mt-2 flex items-center justify-between">
-            <p className="text-[11px] text-muted-foreground">Saves to journal · {sessionNotes.length} this session</p>
+            <p className="text-[11px] text-muted-foreground">
+              Saves to journal · {sessionNotes.length} this session
+            </p>
             <Button size="sm" onClick={saveQuickNote} disabled={!noteDraft.trim()}>
               <Send size={12} className="mr-1" /> Save note
             </Button>
@@ -358,7 +449,7 @@ function ActiveSession() {
           </button>
           {showMetronome && (
             <div className="mt-2">
-              <Metronome compact />
+              <Metronome compact stopSignal={metronomeStopSignal} />
             </div>
           )}
         </div>
@@ -374,7 +465,15 @@ function ActiveSession() {
   );
 }
 
-function ToolCard({ icon, label, status }: { icon: React.ReactNode; label: string; status: string }) {
+function ToolCard({
+  icon,
+  label,
+  status,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  status: string;
+}) {
   return (
     <div className="rounded-xl border border-border bg-card p-3 text-left opacity-80">
       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">

@@ -4,7 +4,11 @@ import { AppLayout, PageHeader } from "@/components/AppLayout";
 import { AuthGate } from "@/components/AuthGate";
 import { useAuth } from "@/lib/auth-context";
 import {
-  sessionStore, uid, allCategories, customCategoriesStore, prefsStore,
+  sessionStore,
+  uid,
+  allCategories,
+  customCategoriesStore,
+  prefsStore,
   type PracticeCategory,
 } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -15,7 +19,11 @@ import { BackButton } from "@/components/BackButton";
 import { Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/session/new")({
-  component: () => <AuthGate><NewSession /></AuthGate>,
+  component: () => (
+    <AuthGate>
+      <NewSession />
+    </AuthGate>
+  ),
   head: () => ({ meta: [{ title: "Start session — SHED" }] }),
 });
 
@@ -43,11 +51,21 @@ function NewSession() {
     e.preventDefault();
     if (!user) return;
     const id = uid();
+    const now = new Date().toISOString();
     sessionStore.add({
-      id, user_id: user.id, date: new Date().toISOString(),
-      duration_minutes: duration, category, session_goal: goal,
-      pre_session_notes: notes, distractions_count: 0, completed: false,
-      created_at: new Date().toISOString(),
+      id,
+      user_id: user.id,
+      date: now,
+      duration_minutes: duration,
+      planned_duration_minutes: duration,
+      start_time: now,
+      status: "active",
+      category,
+      session_goal: goal,
+      pre_session_notes: notes,
+      distractions_count: 0,
+      completed: false,
+      created_at: now,
     });
     navigate({ to: "/session/$id", params: { id } });
   }
@@ -63,7 +81,11 @@ function NewSession() {
   return (
     <AppLayout>
       <BackButton fallback="/dashboard" />
-      <PageHeader eyebrow="Plan" title="Set the session." subtitle="Choose your duration, category, and a single clear goal." />
+      <PageHeader
+        eyebrow="Plan"
+        title="Set the session."
+        subtitle="Choose your duration, category, and a single clear goal."
+      />
 
       {nextFocus && (
         <button
@@ -73,7 +95,9 @@ function NewSession() {
         >
           <Sparkles size={14} className="mt-0.5 text-primary" />
           <div>
-            <p className="text-[11px] uppercase tracking-wider text-primary">Suggested next focus</p>
+            <p className="text-[11px] uppercase tracking-wider text-primary">
+              Suggested next focus
+            </p>
             <p className="mt-0.5 text-sm">{nextFocus}</p>
             <p className="mt-1 text-[11px] text-muted-foreground">Tap to use as session goal</p>
           </div>
@@ -90,14 +114,24 @@ function NewSession() {
                 type="button"
                 onClick={() => setDuration(d)}
                 className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
-                  duration === d ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground"
+                  duration === d
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-foreground"
                 }`}
               >
                 {d} min
               </button>
             ))}
           </div>
-          <input type="range" min={5} max={180} step={5} value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="mt-4 w-full accent-[var(--color-primary)]" />
+          <input
+            type="range"
+            min={5}
+            max={180}
+            step={5}
+            value={duration}
+            onChange={(e) => setDuration(Number(e.target.value))}
+            className="mt-4 w-full accent-[var(--color-primary)]"
+          />
         </div>
 
         <div>
@@ -109,7 +143,9 @@ function NewSession() {
                 type="button"
                 onClick={() => setCategory(c)}
                 className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
-                  category === c ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"
+                  category === c
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground"
                 }`}
               >
                 {c}
@@ -117,21 +153,46 @@ function NewSession() {
             ))}
           </div>
           <div className="mt-2 flex gap-2">
-            <Input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Add your own" className="bg-card h-9 text-xs" />
-            <Button type="button" variant="secondary" onClick={addCategory} size="sm">Add</Button>
+            <Input
+              value={newCat}
+              onChange={(e) => setNewCat(e.target.value)}
+              placeholder="Add your own"
+              className="bg-card h-9 text-xs"
+            />
+            <Button type="button" variant="secondary" onClick={addCategory} size="sm">
+              Add
+            </Button>
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Session goal</Label>
-          <Input value={goal} onChange={(e) => setGoal(e.target.value)} required className="bg-card h-11" placeholder="e.g. Clean bars 12–24 at 80 BPM" />
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            Session goal
+          </Label>
+          <Input
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            required
+            className="bg-card h-11"
+            placeholder="e.g. Clean bars 12–24 at 80 BPM"
+          />
         </div>
         <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Pre-session notes (optional)</Label>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="bg-card" placeholder="Mental prep, intentions, etc." />
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            Pre-session notes (optional)
+          </Label>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            className="bg-card"
+            placeholder="Mental prep, intentions, etc."
+          />
         </div>
 
-        <Button type="submit" className="h-12 w-full">Begin session</Button>
+        <Button type="submit" className="h-12 w-full">
+          Begin session
+        </Button>
       </form>
     </AppLayout>
   );
