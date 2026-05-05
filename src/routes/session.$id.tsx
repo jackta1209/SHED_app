@@ -34,6 +34,7 @@ function ActiveSession() {
   const [noteDraft, setNoteDraft] = useState("");
   const [sessionNotes, setSessionNotes] = useState<JournalEntry[]>([]);
   const [showMetronome, setShowMetronome] = useState(false);
+  const [metronomeStopSignal, setMetronomeStopSignal] = useState(0);
   const finishedRef = useRef(false);
   const alertedRef = useRef<{ ten: boolean; one: boolean; done: boolean }>({
     ten: false, one: false, done: false,
@@ -90,7 +91,7 @@ function ActiveSession() {
 
   // Persist active state
   useEffect(() => {
-    if (!user || !session) return;
+    if (!user || !session || finishedRef.current) return;
     activeSessionStore.save({
       session_id: session.id,
       user_id: user.id,
@@ -206,7 +207,7 @@ function ActiveSession() {
     if (!session || !user) return;
     if (finishedRef.current) return;
     const fresh = sessionStore.get(user.id, session.id);
-    if (fresh?.completed) {
+    if (fresh?.status === "completed" || fresh?.completed) {
       finishedRef.current = true;
       try { activeSessionStore.clear(user.id); } catch { /* noop */ }
       navigate({ to: "/session/$id/reflect", params: { id: session.id } });
@@ -214,16 +215,25 @@ function ActiveSession() {
     }
     finishedRef.current = true;
     setRunning(false);
+    setMetronomeStopSignal((n) => n + 1);
 
+    const now = new Date().toISOString();
     const elapsedSec = elapsedSeconds();
-    const elapsedMin = Math.max(1, Math.round(elapsedSec / 60));
-    const minutes = reason === "timer_complete"
-      ? session.duration_minutes
-      : Math.min(session.duration_minutes, elapsedMin);
+    const plannedMinutes = session.planned_duration_minutes ?? session.duration_minutes;
+    const practiceMinutes = reason === "timer_complete"
+      ? plannedMinutes
+      : Math.max(1, Math.min(plannedMinutes, Math.ceil(elapsedSec / 60)));
 
     const final: PracticeSession = {
       ...session,
-      duration_minutes: minutes,
+      planned_duration_minutes: plannedMinutes,
+      duration_minutes: practiceMinutes,
+      practice_minutes: practiceMinutes,
+      elapsed_seconds: reason === "timer_complete" ? plannedMinutes * 60 : elapsedSec,
+      start_time: session.start_time ?? new Date(startedAtRef.current).toISOString(),
+      end_time: now,
+      status: "completed",
+      completion_method: reason,
       distractions_count: distractions,
       quick_notes: noteDraft || session.quick_notes,
       completed: true,
@@ -358,7 +368,7 @@ function ActiveSession() {
           </button>
           {showMetronome && (
             <div className="mt-2">
-              <Metronome compact />
+              <Metronome compact stopSignal={metronomeStopSignal} />
             </div>
           )}
         </div>
