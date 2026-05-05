@@ -54,6 +54,7 @@ function Reflect() {
     const updated: PracticeSession = {
       ...s,
       completed: true,
+      status: "completed",
       what_practiced: practiced,
       what_improved: improved,
       what_was_difficult: difficult,
@@ -83,7 +84,7 @@ function Reflect() {
       instrument: profile?.main_instrument,
       next_step: next,
       tempo: tempoEnd ? Number(tempoEnd) : undefined,
-      duration_minutes: s.duration_minutes,
+      duration_minutes: s.practice_minutes ?? s.duration_minutes,
       date: now,
       created_at: now,
       updated_at: now,
