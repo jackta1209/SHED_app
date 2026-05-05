@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Gauge, Play, Square } from "lucide-react";
 import { toast } from "sonner";
 
-export function Metronome({ compact = false }: { compact?: boolean }) {
+export function Metronome({ compact = false, stopSignal = 0 }: { compact?: boolean; stopSignal?: number }) {
   const [bpm, setBpm] = useState(80);
   const [running, setRunning] = useState(false);
   const [beat, setBeat] = useState(0);
@@ -49,6 +49,10 @@ export function Metronome({ compact = false }: { compact?: boolean }) {
   useEffect(() => () => {
     if (timerRef.current) window.clearInterval(timerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (stopSignal > 0) setRunning(false);
+  }, [stopSignal]);
 
   function tap() {
     const now = Date.now();
