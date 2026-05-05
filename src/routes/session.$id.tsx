@@ -45,6 +45,7 @@ function ActiveSession() {
 
   // Load session + restore active state
   useEffect(() => {
+    if (!isActiveSessionRoute) return;
     if (!user) return;
     const s = sessionStore.get(user.id, id);
     if (!s) {
@@ -82,7 +83,7 @@ function ActiveSession() {
     }
 
     setSessionNotes(journalStore.forSession(user.id, id));
-  }, [id, user, navigate]);
+  }, [id, user, navigate, isActiveSessionRoute]);
 
   // Tick
   useEffect(() => {
@@ -109,6 +110,7 @@ function ActiveSession() {
 
   // Distraction detection
   useEffect(() => {
+    if (!isActiveSessionRoute) return;
     function onHidden() {
       if (document.visibilityState === "hidden") {
         setDistractions((d) => d + 1);
@@ -117,17 +119,18 @@ function ActiveSession() {
     }
     document.addEventListener("visibilitychange", onHidden);
     return () => document.removeEventListener("visibilitychange", onHidden);
-  }, [strict]);
+  }, [strict, isActiveSessionRoute]);
 
   // Warn before unloading
   useEffect(() => {
+    if (!isActiveSessionRoute) return;
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  }, [isActiveSessionRoute]);
 
   // Timer alerts
   useEffect(() => {
