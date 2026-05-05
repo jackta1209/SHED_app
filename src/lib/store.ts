@@ -46,6 +46,13 @@ export interface PracticeSession {
   user_id: string;
   date: string;
   duration_minutes: number;
+  planned_duration_minutes?: number;
+  practice_minutes?: number;
+  elapsed_seconds?: number;
+  start_time?: string;
+  end_time?: string;
+  status?: "active" | "completed" | "abandoned";
+  completion_method?: "manual_finish" | "timer_complete";
   category: PracticeCategory;
   session_goal: string;
   pre_session_notes?: string;
@@ -305,15 +312,15 @@ export function weeklyStats(sessions: PracticeSession[]) {
   const now = new Date();
   const start = new Date(now);
   start.setDate(now.getDate() - 7);
-  const week = sessions.filter((s) => new Date(s.date) >= start && s.completed);
-  const minutes = week.reduce((a, s) => a + s.duration_minutes, 0);
+  const week = sessions.filter((s) => new Date(s.date) >= start && (s.status === "completed" || s.completed));
+  const minutes = week.reduce((a, s) => a + (s.practice_minutes ?? s.duration_minutes), 0);
   const focus = week.length ? week.reduce((a, s) => a + (s.focus_rating ?? 0), 0) / week.length : 0;
   const progress = week.length ? week.reduce((a, s) => a + (s.progress_rating ?? 0), 0) / week.length : 0;
   return { count: week.length, minutes, focus, progress };
 }
 
 export function currentStreak(sessions: PracticeSession[]) {
-  const days = new Set(sessions.filter((s) => s.completed).map((s) => new Date(s.date).toDateString()));
+  const days = new Set(sessions.filter((s) => s.status === "completed" || s.completed).map((s) => new Date(s.date).toDateString()));
   let streak = 0;
   const cur = new Date();
   while (days.has(cur.toDateString())) {
