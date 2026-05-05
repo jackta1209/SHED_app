@@ -362,7 +362,25 @@ function ActiveSession() {
             </div>
           )}
         </div>
+
+        {/* Other in-session tools */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <ToolCard icon={<Gauge size={14} />} label="Slow Downer" status="Coming soon" />
+          <ToolCard icon={<Sparkles size={14} />} label="AI Assistant" status="Coming soon" />
+          <ToolCard icon={<FileMusic size={14} />} label="Sheet Reader" status="Coming soon" />
+        </div>
       </div>
+    </div>
+  );
+}
+
+function ToolCard({ icon, label, status }: { icon: React.ReactNode; label: string; status: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-3 text-left opacity-80">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+        {icon} <span className="truncate">{label}</span>
+      </div>
+      <p className="mt-1 text-[10px] text-muted-foreground">{status}</p>
     </div>
   );
 }
