@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -23,6 +23,7 @@ export const Route = createFileRoute("/session/$id")({
 
 function ActiveSession() {
   const { id } = Route.useParams();
+  const location = useLocation();
   const { user, prefs } = useAuth();
   const navigate = useNavigate();
   const [session, setSession] = useState<PracticeSession | null>(null);
@@ -40,6 +41,7 @@ function ActiveSession() {
     ten: false, one: false, done: false,
   });
   const startedAtRef = useRef<number>(Date.now());
+  const isActiveSessionRoute = location.pathname === `/session/${id}`;
 
   // Load session + restore active state
   useEffect(() => {
@@ -84,14 +86,14 @@ function ActiveSession() {
 
   // Tick
   useEffect(() => {
-    if (!running) return;
+    if (!running || !isActiveSessionRoute) return;
     const t = setInterval(() => setRemaining((r) => Math.max(0, r - 1)), 1000);
     return () => clearInterval(t);
-  }, [running]);
+  }, [running, isActiveSessionRoute]);
 
   // Persist active state
   useEffect(() => {
-    if (!user || !session || finishedRef.current) return;
+    if (!user || !session || finishedRef.current || !isActiveSessionRoute) return;
     activeSessionStore.save({
       session_id: session.id,
       user_id: user.id,
@@ -103,7 +105,7 @@ function ActiveSession() {
       distractions,
       notes_draft: noteDraft,
     });
-  }, [user, session, running, remaining, distractions, noteDraft, totalSeconds]);
+  }, [user, session, running, remaining, distractions, noteDraft, totalSeconds, isActiveSessionRoute]);
 
   // Distraction detection
   useEffect(() => {
