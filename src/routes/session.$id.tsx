@@ -12,7 +12,7 @@ import {
 } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Pause, Play, X, AlertTriangle, Send, ChevronDown, ChevronUp } from "lucide-react";
+import { Pause, Play, X, AlertTriangle, Send, ChevronDown, ChevronUp, Gauge, Sparkles, FileMusic } from "lucide-react";
 import { toast } from "sonner";
 import { Metronome } from "@/components/Metronome";
 
@@ -156,9 +156,7 @@ function ActiveSession() {
   useEffect(() => {
     if (!session || finishedRef.current) return;
     if (remaining === 0 && totalSeconds > 0) {
-      finishedRef.current = true;
-      setRunning(false);
-      finalize(true);
+      completeSession("timer_complete");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, session, totalSeconds]);
@@ -204,25 +202,49 @@ function ActiveSession() {
     toast.success("Note saved to journal");
   }
 
-  function finalize(autoComplete: boolean) {
+  function completeSession(reason: "manual_finish" | "timer_complete") {
     if (!session || !user) return;
-    const elapsedMin = Math.max(1, Math.round(elapsedSeconds() / 60));
+    if (finishedRef.current) return;
+    const fresh = sessionStore.get(user.id, session.id);
+    if (fresh?.completed) {
+      finishedRef.current = true;
+      try { activeSessionStore.clear(user.id); } catch { /* noop */ }
+      navigate({ to: "/session/$id/reflect", params: { id: session.id } });
+      return;
+    }
+    finishedRef.current = true;
+    setRunning(false);
+
+    const elapsedSec = elapsedSeconds();
+    const elapsedMin = Math.max(1, Math.round(elapsedSec / 60));
+    const minutes = reason === "timer_complete"
+      ? session.duration_minutes
+      : Math.min(session.duration_minutes, elapsedMin);
+
     const final: PracticeSession = {
       ...session,
-      duration_minutes: autoComplete ? session.duration_minutes : Math.min(session.duration_minutes, elapsedMin),
+      duration_minutes: minutes,
       distractions_count: distractions,
       quick_notes: noteDraft || session.quick_notes,
+      completed: true,
     };
-    sessionStore.update(final);
-    activeSessionStore.clear(user.id);
+    try {
+      sessionStore.update(final);
+    } catch (err) {
+      console.error("Failed saving session", err);
+    }
+    try {
+      activeSessionStore.clear(user.id);
+    } catch {
+      /* ignore cleanup errors so navigation always proceeds */
+    }
     navigate({ to: "/session/$id/reflect", params: { id: session.id } });
   }
 
   function finish() {
-    if (!confirm("Finish this session and move on to reflection?")) return;
-    finishedRef.current = true;
-    setRunning(false);
-    finalize(false);
+    if (finishedRef.current) return;
+    if (!confirm("Finish this practice session and move to reflection?")) return;
+    completeSession("manual_finish");
   }
 
   function abandon() {
@@ -340,7 +362,25 @@ function ActiveSession() {
             </div>
           )}
         </div>
+
+        {/* Other in-session tools */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <ToolCard icon={<Gauge size={14} />} label="Slow Downer" status="Coming soon" />
+          <ToolCard icon={<Sparkles size={14} />} label="AI Assistant" status="Coming soon" />
+          <ToolCard icon={<FileMusic size={14} />} label="Sheet Reader" status="Coming soon" />
+        </div>
       </div>
+    </div>
+  );
+}
+
+function ToolCard({ icon, label, status }: { icon: React.ReactNode; label: string; status: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-3 text-left opacity-80">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+        {icon} <span className="truncate">{label}</span>
+      </div>
+      <p className="mt-1 text-[10px] text-muted-foreground">{status}</p>
     </div>
   );
 }
