@@ -36,7 +36,7 @@ function Summary() {
       <PageHeader title="Nice work." subtitle={s.session_goal} />
 
       <div className="mb-6 grid grid-cols-2 gap-3">
-        <Stat label="Duration" value={`${s.duration_minutes}m`} />
+        <Stat label="Duration" value={`${s.practice_minutes ?? s.duration_minutes}m`} />
         <Stat label="Category" value={s.category} />
         <Stat label="Focus" value={`${s.focus_rating ?? "—"}/5`} />
         <Stat label="Progress" value={`${s.progress_rating ?? "—"}/5`} />
