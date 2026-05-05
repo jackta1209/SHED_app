@@ -167,6 +167,7 @@ function ActiveSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, session, totalSeconds]);
 
+  if (!isActiveSessionRoute) return <Outlet />;
   if (!session) return null;
 
   const mm = Math.floor(remaining / 60).toString().padStart(2, "0");
