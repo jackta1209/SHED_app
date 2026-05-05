@@ -12,7 +12,7 @@ import {
 } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Pause, Play, X, AlertTriangle, Send, ChevronDown, ChevronUp } from "lucide-react";
+import { Pause, Play, X, AlertTriangle, Send, ChevronDown, ChevronUp, Gauge, Sparkles, FileMusic } from "lucide-react";
 import { toast } from "sonner";
 import { Metronome } from "@/components/Metronome";
 
