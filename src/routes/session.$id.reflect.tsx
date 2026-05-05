@@ -19,7 +19,11 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/session/$id/reflect")({
-  component: () => <AuthGate><Reflect /></AuthGate>,
+  component: () => (
+    <AuthGate>
+      <Reflect />
+    </AuthGate>
+  ),
   head: () => ({ meta: [{ title: "Reflect — SHED" }] }),
 });
 
@@ -79,7 +83,9 @@ function Reflect() {
         difficult && `Difficult: ${difficult}`,
         next && `Next: ${next}`,
         final,
-      ].filter(Boolean).join("\n\n"),
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
       category: s.category,
       instrument: profile?.main_instrument,
       next_step: next,
@@ -103,11 +109,17 @@ function Reflect() {
 
   return (
     <AppLayout hideNav>
-      <PageHeader eyebrow="Reflect" title="What did you learn?" subtitle="Two minutes here makes tomorrow's practice better." />
+      <PageHeader
+        eyebrow="Reflect"
+        title="What did you learn?"
+        subtitle="Two minutes here makes tomorrow's practice better."
+      />
 
       {notes.length > 0 && (
         <div className="mb-6 rounded-xl border border-border bg-card p-4">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Quick notes from this session</p>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Quick notes from this session
+          </p>
           <ul className="mt-2 space-y-2">
             {notes.map((n) => (
               <li key={n.id} className="text-sm">
@@ -124,27 +136,78 @@ function Reflect() {
       )}
 
       <form onSubmit={save} className="space-y-5">
-        <Field label="What did you practice?"><Textarea rows={2} value={practiced} onChange={(e) => setPracticed(e.target.value)} className="bg-card" /></Field>
-        <Field label="What improved?"><Textarea rows={2} value={improved} onChange={(e) => setImproved(e.target.value)} className="bg-card" /></Field>
-        <Field label="What was difficult?"><Textarea rows={2} value={difficult} onChange={(e) => setDifficult(e.target.value)} className="bg-card" /></Field>
-        <Field label="What should you work on next?"><Textarea rows={2} value={next} onChange={(e) => setNext(e.target.value)} className="bg-card" /></Field>
+        <Field label="What did you practice?">
+          <Textarea
+            rows={2}
+            value={practiced}
+            onChange={(e) => setPracticed(e.target.value)}
+            className="bg-card"
+          />
+        </Field>
+        <Field label="What improved?">
+          <Textarea
+            rows={2}
+            value={improved}
+            onChange={(e) => setImproved(e.target.value)}
+            className="bg-card"
+          />
+        </Field>
+        <Field label="What was difficult?">
+          <Textarea
+            rows={2}
+            value={difficult}
+            onChange={(e) => setDifficult(e.target.value)}
+            className="bg-card"
+          />
+        </Field>
+        <Field label="What should you work on next?">
+          <Textarea
+            rows={2}
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            className="bg-card"
+          />
+        </Field>
 
         <Rating label="Focus" value={focus} onChange={setFocus} />
         <Rating label="Progress" value={progress} onChange={setProgress} />
 
         <div className="grid grid-cols-2 gap-2">
           <Field label="Start tempo (optional)">
-            <Input value={tempoStart} onChange={(e) => setTempoStart(e.target.value)} inputMode="numeric" placeholder="BPM" className="bg-card" />
+            <Input
+              value={tempoStart}
+              onChange={(e) => setTempoStart(e.target.value)}
+              inputMode="numeric"
+              placeholder="BPM"
+              className="bg-card"
+            />
           </Field>
           <Field label="End tempo (optional)">
-            <Input value={tempoEnd} onChange={(e) => setTempoEnd(e.target.value)} inputMode="numeric" placeholder="BPM" className="bg-card" />
+            <Input
+              value={tempoEnd}
+              onChange={(e) => setTempoEnd(e.target.value)}
+              inputMode="numeric"
+              placeholder="BPM"
+              className="bg-card"
+            />
           </Field>
         </div>
 
-        <Field label="Final notes"><Textarea rows={2} value={final} onChange={(e) => setFinal(e.target.value)} className="bg-card" /></Field>
+        <Field label="Final notes">
+          <Textarea
+            rows={2}
+            value={final}
+            onChange={(e) => setFinal(e.target.value)}
+            className="bg-card"
+          />
+        </Field>
 
-        <Button type="submit" className="h-12 w-full">Save reflection</Button>
-        <Link to="/dashboard" className="block text-center text-xs text-muted-foreground">Skip for now</Link>
+        <Button type="submit" className="h-12 w-full">
+          Save reflection
+        </Button>
+        <Link to="/dashboard" className="block text-center text-xs text-muted-foreground">
+          Skip for now
+        </Link>
       </form>
     </AppLayout>
   );
@@ -159,16 +222,30 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Rating({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) {
+function Rating({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+}) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs uppercase tracking-wider text-muted-foreground">{label} — {value}/5</Label>
+      <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+        {label} — {value}/5
+      </Label>
       <div className="flex gap-2">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
-            key={n} type="button" onClick={() => onChange(n)}
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
             className={`h-10 flex-1 rounded-lg border text-sm transition-colors ${
-              n <= value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"
+              n <= value
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground"
             }`}
           >
             {n}

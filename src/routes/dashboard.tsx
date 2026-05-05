@@ -4,13 +4,24 @@ import { AppLayout, Section } from "@/components/AppLayout";
 import { AuthGate } from "@/components/AuthGate";
 import { useAuth } from "@/lib/auth-context";
 import {
-  profileStore, sessionStore, prefsStore, activeSessionStore, weeklyStats, currentStreak,
-  type MusicianProfile, type PracticeSession, type ActiveSessionState,
+  profileStore,
+  sessionStore,
+  prefsStore,
+  activeSessionStore,
+  weeklyStats,
+  currentStreak,
+  type MusicianProfile,
+  type PracticeSession,
+  type ActiveSessionState,
 } from "@/lib/store";
 import { ArrowRight, Sparkles, Play, Flame } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
-  component: () => <AuthGate><Dashboard /></AuthGate>,
+  component: () => (
+    <AuthGate>
+      <Dashboard />
+    </AuthGate>
+  ),
   head: () => ({ meta: [{ title: "Dashboard — SHED" }] }),
 });
 
@@ -31,18 +42,26 @@ function Dashboard() {
 
   const stats = weeklyStats(sessions);
   const streak = currentStreak(sessions);
-  const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  const today = new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
   const completed = sessions.filter((s) => s.status === "completed" || s.completed);
 
   return (
     <AppLayout>
       <header className="mb-7">
-        <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">{today}</p>
+        <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
+          {today}
+        </p>
         <h1 className="mt-3 font-serif text-[40px] leading-[1.05]">
           Hello, <span className="italic">{profile?.name?.split(" ")[0] ?? "musician"}</span>.
         </h1>
         {profile?.main_instrument && (
-          <p className="mt-1 text-sm text-muted-foreground">{profile.main_instrument} · {profile.skill_level}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {profile.main_instrument} · {profile.skill_level}
+          </p>
         )}
       </header>
 
@@ -61,22 +80,34 @@ function Dashboard() {
       )}
 
       <div className="mb-5 rounded-2xl border border-border bg-card p-5">
-        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Today's focus</p>
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Today's focus
+        </p>
         {nextFocus ? (
           <p className="mt-2 font-serif text-2xl leading-tight">{nextFocus}</p>
         ) : (
           <p className="mt-2 font-serif text-2xl leading-tight">
-            Aim for <span className="text-primary">{profile?.preferred_practice_duration ?? 45} minutes</span> of focused work.
+            Aim for{" "}
+            <span className="text-primary">
+              {profile?.preferred_practice_duration ?? 45} minutes
+            </span>{" "}
+            of focused work.
           </p>
         )}
         {nextFocus && (
           <p className="mt-1 text-xs text-muted-foreground">From your last session's reflection.</p>
         )}
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <Link to="/session/new" className="flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-3 text-sm font-medium text-primary-foreground">
+          <Link
+            to="/session/new"
+            className="flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-3 text-sm font-medium text-primary-foreground"
+          >
             <Play size={16} /> Start practice
           </Link>
-          <Link to="/routine" className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 py-3 text-sm font-medium">
+          <Link
+            to="/routine"
+            className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 py-3 text-sm font-medium"
+          >
             <Sparkles size={16} /> AI routine
           </Link>
         </div>
@@ -102,7 +133,14 @@ function Dashboard() {
         </div>
       </div>
 
-      <Section title="Recent sessions" action={<Link to="/history" className="text-xs text-muted-foreground hover:text-foreground">All</Link>}>
+      <Section
+        title="Recent sessions"
+        action={
+          <Link to="/history" className="text-xs text-muted-foreground hover:text-foreground">
+            All
+          </Link>
+        }
+      >
         {completed.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
             No sessions yet. Start your first focused practice session.
@@ -111,14 +149,22 @@ function Dashboard() {
           <ul className="space-y-2">
             {completed.slice(0, 4).map((s) => (
               <li key={s.id}>
-                <Link to="/session/$id/summary" params={{ id: s.id }} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 hover:bg-accent">
+                <Link
+                  to="/session/$id/summary"
+                  params={{ id: s.id }}
+                  className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 hover:bg-accent"
+                >
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.category}</p>
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                      {s.category}
+                    </p>
                     <p className="mt-0.5 truncate text-sm">{s.session_goal || "Practice"}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-mono text-sm">{s.practice_minutes ?? s.duration_minutes}m</p>
-                    <p className="text-[11px] text-muted-foreground">{new Date(s.date).toLocaleDateString()}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {new Date(s.date).toLocaleDateString()}
+                    </p>
                   </div>
                   <ArrowRight size={14} className="text-muted-foreground" />
                 </Link>

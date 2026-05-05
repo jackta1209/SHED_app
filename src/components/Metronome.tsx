@@ -3,7 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Gauge, Play, Square } from "lucide-react";
 import { toast } from "sonner";
 
-export function Metronome({ compact = false, stopSignal = 0 }: { compact?: boolean; stopSignal?: number }) {
+export function Metronome({
+  compact = false,
+  stopSignal = 0,
+}: {
+  compact?: boolean;
+  stopSignal?: number;
+}) {
   const [bpm, setBpm] = useState(80);
   const [running, setRunning] = useState(false);
   const [beat, setBeat] = useState(0);
@@ -19,8 +25,10 @@ export function Metronome({ compact = false, stopSignal = 0 }: { compact?: boole
       return;
     }
     if (!ctxRef.current) {
-      ctxRef.current = new (window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      ctxRef.current = new (
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      )();
     }
     const interval = 60000 / bpm;
     let count = 0;
@@ -46,9 +54,12 @@ export function Metronome({ compact = false, stopSignal = 0 }: { compact?: boole
   }, [running, bpm, signature]);
 
   // Stop when component unmounts
-  useEffect(() => () => {
-    if (timerRef.current) window.clearInterval(timerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timerRef.current) window.clearInterval(timerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (stopSignal > 0) setRunning(false);
@@ -74,13 +85,22 @@ export function Metronome({ compact = false, stopSignal = 0 }: { compact?: boole
         <p className="text-sm font-medium">Metronome</p>
         <div className="flex gap-1">
           {Array.from({ length: signature }).map((_, i) => (
-            <span key={i} className={`h-2 w-2 rounded-full transition-colors ${running && beat === i ? "bg-primary" : "bg-border"}`} />
+            <span
+              key={i}
+              className={`h-2 w-2 rounded-full transition-colors ${running && beat === i ? "bg-primary" : "bg-border"}`}
+            />
           ))}
         </div>
       </div>
 
       <div className={compact ? "my-3 text-center" : "my-5 text-center"}>
-        <p className={compact ? "font-mono text-4xl tabular-nums" : "font-mono text-6xl tabular-nums"}>{bpm}</p>
+        <p
+          className={
+            compact ? "font-mono text-4xl tabular-nums" : "font-mono text-6xl tabular-nums"
+          }
+        >
+          {bpm}
+        </p>
         <p className="text-[11px] uppercase tracking-wider text-muted-foreground">BPM</p>
       </div>
 
@@ -95,7 +115,15 @@ export function Metronome({ compact = false, stopSignal = 0 }: { compact?: boole
 
       <div className="mt-3 flex gap-2">
         <Button onClick={() => setRunning((r) => !r)} className="h-10 flex-1">
-          {running ? (<><Square size={14} className="mr-2" /> Stop</>) : (<><Play size={14} className="mr-2" /> Start</>)}
+          {running ? (
+            <>
+              <Square size={14} className="mr-2" /> Stop
+            </>
+          ) : (
+            <>
+              <Play size={14} className="mr-2" /> Start
+            </>
+          )}
         </Button>
         <Button variant="secondary" onClick={tap} className="h-10">
           <Gauge size={14} className="mr-2" /> Tap
