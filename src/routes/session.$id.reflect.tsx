@@ -6,9 +6,8 @@ import { useAuth } from "@/lib/auth-context";
 import {
   sessionStore,
   journalStore,
-  prefsStore,
+  settingsStore,
   profileStore,
-  uid,
   type PracticeSession,
   type JournalEntry,
 } from "@/lib/store";
@@ -42,22 +41,22 @@ function Reflect() {
   const [final, setFinal] = useState("");
   const [tempoStart, setTempoStart] = useState("");
   const [tempoEnd, setTempoEnd] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    setS(sessionStore.get(user.id, id));
-    setNotes(journalStore.forSession(user.id, id));
+    sessionStore.get(user.id, id).then(setS);
+    journalStore.forSession(user.id, id).then(setNotes);
   }, [id, user]);
 
   if (!s) return null;
 
-  function save(e: React.FormEvent) {
+  async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!s || !user) return;
-    const now = new Date().toISOString();
-    const updated: PracticeSession = {
-      ...s,
-      completed: true,
+    setBusy(true);
+
+    await sessionStore.update(s.id, {
       status: "completed",
       what_practiced: practiced,
       what_improved: improved,
@@ -65,18 +64,15 @@ function Reflect() {
       next_step: next,
       focus_rating: focus,
       progress_rating: progress,
-      quick_notes: [s.quick_notes, final].filter(Boolean).join("\n\n"),
-    };
-    sessionStore.update(updated);
+      final_notes: final,
+    });
 
-    // Save reflection as journal entry
-    const profile = profileStore.get(user.id);
-    const entry: JournalEntry = {
-      id: uid(),
+    const profile = await profileStore.get(user.id);
+    await journalStore.add({
       user_id: user.id,
       session_id: s.id,
       entry_type: "session_reflection",
-      title: `Reflection — ${s.category}`,
+      title: `Reflection — ${s.practice_category ?? "Practice"}`,
       content: [
         practiced && `Practiced: ${practiced}`,
         improved && `Improved: ${improved}`,
@@ -86,23 +82,19 @@ function Reflect() {
       ]
         .filter(Boolean)
         .join("\n\n"),
-      category: s.category,
-      instrument: profile?.main_instrument,
-      next_step: next,
-      tempo: tempoEnd ? Number(tempoEnd) : undefined,
-      duration_minutes: s.practice_minutes ?? s.duration_minutes,
-      date: now,
-      created_at: now,
-      updated_at: now,
-    };
-    journalStore.add(entry);
+      category: s.practice_category,
+      instrument: profile?.instrument ?? null,
+      next_step: next || null,
+      tempo: tempoEnd ? Number(tempoEnd) : null,
+      duration_minutes: s.practice_minutes,
+      session_elapsed_seconds: null,
+    });
 
-    // Carry next focus forward
     if (next.trim()) {
-      const prefs = prefsStore.get(user.id);
-      prefsStore.save({ ...prefs, next_focus: next.trim(), updated_at: now });
+      await settingsStore.save(user.id, { next_focus: next.trim() });
     }
 
+    setBusy(false);
     toast.success("Session logged.");
     navigate({ to: "/session/$id/summary", params: { id: s.id } });
   }
@@ -124,7 +116,7 @@ function Reflect() {
             {notes.map((n) => (
               <li key={n.id} className="text-sm">
                 <p className="text-[11px] text-muted-foreground">
-                  {n.session_elapsed_seconds !== undefined
+                  {n.session_elapsed_seconds != null
                     ? `${Math.floor(n.session_elapsed_seconds / 60)}:${(n.session_elapsed_seconds % 60).toString().padStart(2, "0")} in`
                     : ""}
                 </p>
@@ -137,36 +129,16 @@ function Reflect() {
 
       <form onSubmit={save} className="space-y-5">
         <Field label="What did you practice?">
-          <Textarea
-            rows={2}
-            value={practiced}
-            onChange={(e) => setPracticed(e.target.value)}
-            className="bg-card"
-          />
+          <Textarea rows={2} value={practiced} onChange={(e) => setPracticed(e.target.value)} className="bg-card" />
         </Field>
         <Field label="What improved?">
-          <Textarea
-            rows={2}
-            value={improved}
-            onChange={(e) => setImproved(e.target.value)}
-            className="bg-card"
-          />
+          <Textarea rows={2} value={improved} onChange={(e) => setImproved(e.target.value)} className="bg-card" />
         </Field>
         <Field label="What was difficult?">
-          <Textarea
-            rows={2}
-            value={difficult}
-            onChange={(e) => setDifficult(e.target.value)}
-            className="bg-card"
-          />
+          <Textarea rows={2} value={difficult} onChange={(e) => setDifficult(e.target.value)} className="bg-card" />
         </Field>
         <Field label="What should you work on next?">
-          <Textarea
-            rows={2}
-            value={next}
-            onChange={(e) => setNext(e.target.value)}
-            className="bg-card"
-          />
+          <Textarea rows={2} value={next} onChange={(e) => setNext(e.target.value)} className="bg-card" />
         </Field>
 
         <Rating label="Focus" value={focus} onChange={setFocus} />
@@ -174,36 +146,19 @@ function Reflect() {
 
         <div className="grid grid-cols-2 gap-2">
           <Field label="Start tempo (optional)">
-            <Input
-              value={tempoStart}
-              onChange={(e) => setTempoStart(e.target.value)}
-              inputMode="numeric"
-              placeholder="BPM"
-              className="bg-card"
-            />
+            <Input value={tempoStart} onChange={(e) => setTempoStart(e.target.value)} inputMode="numeric" placeholder="BPM" className="bg-card" />
           </Field>
           <Field label="End tempo (optional)">
-            <Input
-              value={tempoEnd}
-              onChange={(e) => setTempoEnd(e.target.value)}
-              inputMode="numeric"
-              placeholder="BPM"
-              className="bg-card"
-            />
+            <Input value={tempoEnd} onChange={(e) => setTempoEnd(e.target.value)} inputMode="numeric" placeholder="BPM" className="bg-card" />
           </Field>
         </div>
 
         <Field label="Final notes">
-          <Textarea
-            rows={2}
-            value={final}
-            onChange={(e) => setFinal(e.target.value)}
-            className="bg-card"
-          />
+          <Textarea rows={2} value={final} onChange={(e) => setFinal(e.target.value)} className="bg-card" />
         </Field>
 
-        <Button type="submit" className="h-12 w-full">
-          Save reflection
+        <Button type="submit" disabled={busy} className="h-12 w-full">
+          {busy ? "Saving…" : "Save reflection"}
         </Button>
         <Link to="/dashboard" className="block text-center text-xs text-muted-foreground">
           Skip for now
@@ -242,11 +197,7 @@ function Rating({
             key={n}
             type="button"
             onClick={() => onChange(n)}
-            className={`h-10 flex-1 rounded-lg border text-sm transition-colors ${
-              n <= value
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-muted-foreground"
-            }`}
+            className={`h-10 flex-1 rounded-lg border text-sm transition-colors ${n <= value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}
           >
             {n}
           </button>

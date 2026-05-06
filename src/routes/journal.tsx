@@ -4,8 +4,13 @@ import { AppLayout, PageHeader, Section } from "@/components/AppLayout";
 import { AuthGate } from "@/components/AuthGate";
 import { useAuth } from "@/lib/auth-context";
 import {
-  journalStore, sessionStore, allCategories, customCategoriesStore, profileStore, uid,
-  type JournalEntry, type PracticeSession,
+  journalStore,
+  sessionStore,
+  allCategories,
+  customCategoriesStore,
+  profileStore,
+  type JournalEntry,
+  type PracticeSession,
 } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +19,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, MessageSquareText, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/journal")({
-  component: () => <AuthGate><Journal /></AuthGate>,
+  component: () => (
+    <AuthGate>
+      <Journal />
+    </AuthGate>
+  ),
   head: () => ({ meta: [{ title: "Journal — SHED" }] }),
 });
 
@@ -22,24 +31,39 @@ function Journal() {
   const { user } = useAuth();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
+  const [cats, setCats] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<string>("All");
 
-  useEffect(() => {
+  async function refresh() {
     if (!user) return;
-    setEntries(journalStore.list(user.id));
-    setSessions(sessionStore.list(user.id));
+    const [e, s, c] = await Promise.all([
+      journalStore.list(user.id),
+      sessionStore.list(user.id),
+      allCategories(user.id),
+    ]);
+    setEntries(e);
+    setSessions(s);
+    setCats(c);
+  }
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const cats = user ? allCategories(user.id) : [];
+  const filtered = useMemo(
+    () =>
+      entries.filter(
+        (e) =>
+          (filter === "All" || e.category === filter) &&
+          (q === "" ||
+            `${e.title ?? ""} ${e.content ?? ""}`.toLowerCase().includes(q.toLowerCase())),
+      ),
+    [entries, q, filter],
+  );
 
-  const filtered = useMemo(() => entries.filter((e) =>
-    (filter === "All" || e.category === filter) &&
-    (q === "" || `${e.title} ${e.content} ${e.piece_or_exercise ?? ""} ${e.notes ?? ""}`.toLowerCase().includes(q.toLowerCase()))
-  ), [entries, q, filter]);
-
-  // Group by session_id
   const grouped = useMemo(() => {
     const map = new Map<string, JournalEntry[]>();
     const standalone: JournalEntry[] = [];
@@ -58,17 +82,28 @@ function Journal() {
     <AppLayout>
       <div className="mb-6 flex items-end justify-between">
         <PageHeader eyebrow="Track" title="Practice journal" />
-        <Button onClick={() => setOpen(true)} size="sm" className="mb-2"><Plus size={14} className="mr-1" /> New</Button>
+        <Button onClick={() => setOpen(true)} size="sm" className="mb-2">
+          <Plus size={14} className="mr-1" /> New
+        </Button>
       </div>
 
       <div className="mb-4 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
         <Search size={14} className="text-muted-foreground" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search entries…" className="w-full bg-transparent text-sm focus:outline-none" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search entries…"
+          className="w-full bg-transparent text-sm focus:outline-none"
+        />
       </div>
 
       <div className="mb-5 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-        {(["All", ...cats]).map((c) => (
-          <button key={c} onClick={() => setFilter(c)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs ${filter === c ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>
+        {["All", ...cats].map((c) => (
+          <button
+            key={c}
+            onClick={() => setFilter(c)}
+            className={`shrink-0 rounded-full border px-3 py-1.5 text-xs ${filter === c ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}
+          >
             {c}
           </button>
         ))}
@@ -78,11 +113,9 @@ function Journal() {
         <NewEntryForm
           categories={cats}
           onCancel={() => setOpen(false)}
-          onSave={(e) => {
-            if (!user) return;
-            journalStore.add(e);
-            setEntries(journalStore.list(user.id));
+          onSaved={async () => {
             setOpen(false);
+            await refresh();
           }}
         />
       )}
@@ -90,7 +123,9 @@ function Journal() {
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-8 text-center">
           <p className="text-sm text-muted-foreground">No journal entries yet.</p>
-          <p className="mt-1 text-xs text-muted-foreground">Notes you save during practice will appear here, grouped by session.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Notes you save during practice will appear here, grouped by session.
+          </p>
         </div>
       ) : (
         <div className="space-y-5">
@@ -100,12 +135,18 @@ function Journal() {
               <div key={sid} className="rounded-2xl border border-border bg-surface p-3">
                 <div className="mb-2 px-1">
                   <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                    {session ? `${session.category} · ${new Date(session.date).toLocaleDateString()}` : "Session"}
+                    {session
+                      ? `${session.practice_category ?? "Practice"} · ${new Date(session.created_at).toLocaleDateString()}`
+                      : "Session"}
                   </p>
-                  {session?.session_goal && <p className="text-sm font-medium">{session.session_goal}</p>}
+                  {session?.session_goal && (
+                    <p className="text-sm font-medium">{session.session_goal}</p>
+                  )}
                 </div>
                 <ul className="space-y-2">
-                  {items.map((e) => <EntryCard key={e.id} e={e} />)}
+                  {items.map((e) => (
+                    <EntryCard key={e.id} e={e} />
+                  ))}
                 </ul>
               </div>
             );
@@ -113,7 +154,9 @@ function Journal() {
           {grouped.standalone.length > 0 && (
             <Section title="Standalone entries">
               <ul className="space-y-2">
-                {grouped.standalone.map((e) => <EntryCard key={e.id} e={e} />)}
+                {grouped.standalone.map((e) => (
+                  <EntryCard key={e.id} e={e} />
+                ))}
               </ul>
             </Section>
           )}
@@ -121,7 +164,9 @@ function Journal() {
       )}
 
       <div className="mt-6 text-center">
-        <Link to="/dashboard" className="text-xs text-muted-foreground">← Back to dashboard</Link>
+        <Link to="/dashboard" className="text-xs text-muted-foreground">
+          ← Back to dashboard
+        </Link>
       </div>
     </AppLayout>
   );
@@ -134,31 +179,57 @@ function EntryCard({ e }: { e: JournalEntry }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
           <Icon size={12} />
-          {e.entry_type === "session_reflection" ? "Reflection" : e.entry_type === "quick_note" ? "Quick note" : (e.category ?? "Entry")}
+          {e.entry_type === "session_reflection"
+            ? "Reflection"
+            : e.entry_type === "quick_note"
+              ? "Quick note"
+              : (e.category ?? "Entry")}
         </div>
         <p className="text-[11px] text-muted-foreground">
-          {new Date(e.date).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+          {new Date(e.created_at).toLocaleString([], {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          })}
         </p>
       </div>
-      <p className="mt-1 font-serif text-base">{e.title}</p>
-      {e.session_elapsed_seconds !== undefined && (
+      {e.title && <p className="mt-1 font-serif text-base">{e.title}</p>}
+      {e.session_elapsed_seconds != null && (
         <p className="text-[11px] text-muted-foreground">
-          {Math.floor(e.session_elapsed_seconds / 60)}:{(e.session_elapsed_seconds % 60).toString().padStart(2, "0")} into session
+          {Math.floor(e.session_elapsed_seconds / 60)}:
+          {(e.session_elapsed_seconds % 60).toString().padStart(2, "0")} into session
           {e.instrument ? ` · ${e.instrument}` : ""}
         </p>
       )}
-      {e.content && <p className="mt-2 text-sm text-foreground/90 whitespace-pre-wrap">{e.content}</p>}
+      {e.content && (
+        <p className="mt-2 text-sm whitespace-pre-wrap text-foreground/90">{e.content}</p>
+      )}
       {(e.tempo || e.duration_minutes) && (
         <p className="mt-2 text-xs text-muted-foreground">
-          {e.tempo ? `${e.tempo} BPM` : ""}{e.tempo && e.duration_minutes ? " · " : ""}{e.duration_minutes ? `${e.duration_minutes} min` : ""}
+          {e.tempo ? `${e.tempo} BPM` : ""}
+          {e.tempo && e.duration_minutes ? " · " : ""}
+          {e.duration_minutes ? `${e.duration_minutes} min` : ""}
         </p>
       )}
-      {e.next_step && <p className="mt-2 text-xs text-muted-foreground"><span className="uppercase tracking-wider">Next:</span> {e.next_step}</p>}
+      {e.next_step && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          <span className="uppercase tracking-wider">Next:</span> {e.next_step}
+        </p>
+      )}
     </li>
   );
 }
 
-function NewEntryForm({ onSave, onCancel, categories }: { onSave: (e: JournalEntry) => void; onCancel: () => void; categories: string[] }) {
+function NewEntryForm({
+  onSaved,
+  onCancel,
+  categories,
+}: {
+  onSaved: () => void;
+  onCancel: () => void;
+  categories: string[];
+}) {
   const { user } = useAuth();
   const [category, setCategory] = useState<string>(categories[0] ?? "Repertoire");
   const [piece, setPiece] = useState("");
@@ -167,57 +238,111 @@ function NewEntryForm({ onSave, onCancel, categories }: { onSave: (e: JournalEnt
   const [notes, setNotes] = useState("");
   const [next, setNext] = useState("");
   const [newCat, setNewCat] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
-    const now = new Date().toISOString();
-    const profile = profileStore.get(user.id);
-    onSave({
-      id: uid(), user_id: user.id, entry_type: "manual",
+    setBusy(true);
+    const profile = await profileStore.get(user.id);
+    await journalStore.add({
+      user_id: user.id,
+      session_id: null,
+      entry_type: "standalone_note",
       title: piece || "Journal entry",
       content: notes,
       category,
-      piece_or_exercise: piece,
-      tempo: tempo ? Number(tempo) : undefined,
-      duration_minutes: dur ? Number(dur) : undefined,
-      notes, next_step: next,
-      instrument: profile?.main_instrument,
-      date: now, created_at: now, updated_at: now,
+      tempo: tempo ? Number(tempo) : null,
+      duration_minutes: dur ? Number(dur) : null,
+      next_step: next || null,
+      instrument: profile?.instrument ?? null,
+      session_elapsed_seconds: null,
     });
+    setBusy(false);
+    onSaved();
   }
 
-  function addCategory() {
+  async function addCategory() {
     if (!user || !newCat.trim()) return;
-    customCategoriesStore.add(user.id, newCat.trim());
+    await customCategoriesStore.add(user.id, newCat.trim());
     setCategory(newCat.trim());
     setNewCat("");
   }
 
   return (
-    <form onSubmit={submit} className="mb-6 space-y-4 rounded-2xl border border-border bg-surface p-4">
+    <form
+      onSubmit={submit}
+      className="mb-6 space-y-4 rounded-2xl border border-border bg-surface p-4"
+    >
       <div className="space-y-2">
         <Label className="text-xs uppercase tracking-wider text-muted-foreground">Category</Label>
         <div className="flex flex-wrap gap-2">
           {categories.map((c) => (
-            <button type="button" key={c} onClick={() => setCategory(c)} className={`rounded-full border px-3 py-1 text-xs ${category === c ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>{c}</button>
+            <button
+              type="button"
+              key={c}
+              onClick={() => setCategory(c)}
+              className={`rounded-full border px-3 py-1 text-xs ${category === c ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}
+            >
+              {c}
+            </button>
           ))}
         </div>
         <div className="flex gap-2 pt-1">
-          <Input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Add custom category" className="bg-card h-9 text-xs" />
-          <Button type="button" variant="secondary" onClick={addCategory} size="sm">Add</Button>
+          <Input
+            value={newCat}
+            onChange={(e) => setNewCat(e.target.value)}
+            placeholder="Add custom category"
+            className="bg-card h-9 text-xs"
+          />
+          <Button type="button" variant="secondary" onClick={addCategory} size="sm">
+            Add
+          </Button>
         </div>
       </div>
-      <Input required value={piece} onChange={(e) => setPiece(e.target.value)} placeholder="Piece or exercise" className="bg-card h-11" />
+      <Input
+        required
+        value={piece}
+        onChange={(e) => setPiece(e.target.value)}
+        placeholder="Piece or exercise"
+        className="bg-card h-11"
+      />
       <div className="grid grid-cols-2 gap-2">
-        <Input value={tempo} onChange={(e) => setTempo(e.target.value)} placeholder="Tempo (BPM)" inputMode="numeric" className="bg-card h-11" />
-        <Input value={dur} onChange={(e) => setDur(e.target.value)} placeholder="Duration (min)" inputMode="numeric" className="bg-card h-11" />
+        <Input
+          value={tempo}
+          onChange={(e) => setTempo(e.target.value)}
+          placeholder="Tempo (BPM)"
+          inputMode="numeric"
+          className="bg-card h-11"
+        />
+        <Input
+          value={dur}
+          onChange={(e) => setDur(e.target.value)}
+          placeholder="Duration (min)"
+          inputMode="numeric"
+          className="bg-card h-11"
+        />
       </div>
-      <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Notes…" className="bg-card" />
-      <Input value={next} onChange={(e) => setNext(e.target.value)} placeholder="Next step" className="bg-card h-11" />
+      <Textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        rows={3}
+        placeholder="Notes…"
+        className="bg-card"
+      />
+      <Input
+        value={next}
+        onChange={(e) => setNext(e.target.value)}
+        placeholder="Next step"
+        className="bg-card h-11"
+      />
       <div className="flex gap-2">
-        <Button type="button" variant="secondary" onClick={onCancel} className="flex-1">Cancel</Button>
-        <Button type="submit" className="flex-1">Save entry</Button>
+        <Button type="button" variant="secondary" onClick={onCancel} className="flex-1">
+          Cancel
+        </Button>
+        <Button type="submit" disabled={busy} className="flex-1">
+          {busy ? "Saving…" : "Save entry"}
+        </Button>
       </div>
     </form>
   );

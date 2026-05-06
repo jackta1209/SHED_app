@@ -40,14 +40,12 @@ function Routine() {
     if (r) setLast(r);
   }, [user]);
 
-  function gen(e: React.FormEvent) {
+  async function gen(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
-    const profile = profileStore.get(user.id);
-    const recent = sessionStore
-      .list(user.id)
-      .filter((s) => s.status === "completed" || s.completed)
-      .slice(0, 5);
+    const profile = await profileStore.get(user.id);
+    const all = await sessionStore.list(user.id);
+    const recent = all.filter((s) => s.status === "completed").slice(0, 5);
     const generated = generateRoutine({ minutes, focus, profile, recent });
     const r: AIRoutine = {
       id: uid(),
@@ -112,11 +110,6 @@ function Routine() {
           <Sparkles size={14} className="mr-2" /> Generate routine
         </Button>
       </form>
-
-      <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-        Routines are generated from your profile and practice history. Full AI coaching can be
-        connected later.
-      </p>
 
       {last && (
         <div className="mt-6 space-y-3">

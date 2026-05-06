@@ -6,11 +6,11 @@ import { useAuth } from "@/lib/auth-context";
 import {
   profileStore,
   sessionStore,
-  prefsStore,
+  settingsStore,
   activeSessionStore,
   weeklyStats,
   currentStreak,
-  type MusicianProfile,
+  type Profile,
   type PracticeSession,
   type ActiveSessionState,
 } from "@/lib/store";
@@ -27,19 +27,20 @@ export const Route = createFileRoute("/dashboard")({
 
 function Dashboard() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState<MusicianProfile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
-  const [nextFocus, setNextFocus] = useState<string | undefined>();
+  const [nextFocus, setNextFocus] = useState<string | null>(null);
   const [active, setActive] = useState<ActiveSessionState | null>(null);
 
   useEffect(() => {
     if (!user) return;
-    setProfile(profileStore.get(user.id));
-    setSessions(sessionStore.list(user.id));
-    setNextFocus(prefsStore.get(user.id).next_focus);
+    profileStore.get(user.id).then(setProfile);
+    sessionStore.list(user.id).then(setSessions);
+    settingsStore.get(user.id).then((s) => setNextFocus(s.next_focus));
     setActive(activeSessionStore.get(user.id));
   }, [user]);
 
+  const completed = sessions.filter((s) => s.status === "completed");
   const stats = weeklyStats(sessions);
   const streak = currentStreak(sessions);
   const today = new Date().toLocaleDateString(undefined, {
@@ -47,7 +48,6 @@ function Dashboard() {
     month: "long",
     day: "numeric",
   });
-  const completed = sessions.filter((s) => s.status === "completed" || s.completed);
 
   return (
     <AppLayout>
@@ -56,11 +56,15 @@ function Dashboard() {
           {today}
         </p>
         <h1 className="mt-3 font-serif text-[40px] leading-[1.05]">
-          Hello, <span className="italic">{profile?.name?.split(" ")[0] ?? "musician"}</span>.
+          Hello,{" "}
+          <span className="italic">
+            {profile?.display_name?.split(" ")[0] ?? "musician"}
+          </span>
+          .
         </h1>
-        {profile?.main_instrument && (
+        {profile?.instrument && (
           <p className="mt-1 text-sm text-muted-foreground">
-            {profile.main_instrument} · {profile.skill_level}
+            {profile.instrument} · {profile.skill_level}
           </p>
         )}
       </header>
@@ -93,9 +97,6 @@ function Dashboard() {
             </span>{" "}
             of focused work.
           </p>
-        )}
-        {nextFocus && (
-          <p className="mt-1 text-xs text-muted-foreground">From your last session's reflection.</p>
         )}
         <div className="mt-5 grid grid-cols-2 gap-3">
           <Link
@@ -154,16 +155,16 @@ function Dashboard() {
                   params={{ id: s.id }}
                   className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 hover:bg-accent"
                 >
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                      {s.category}
+                      {s.practice_category ?? "Practice"}
                     </p>
                     <p className="mt-0.5 truncate text-sm">{s.session_goal || "Practice"}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-mono text-sm">{s.practice_minutes ?? s.duration_minutes}m</p>
+                    <p className="font-mono text-sm">{s.practice_minutes}m</p>
                     <p className="text-[11px] text-muted-foreground">
-                      {new Date(s.date).toLocaleDateString()}
+                      {new Date(s.created_at).toLocaleDateString()}
                     </p>
                   </div>
                   <ArrowRight size={14} className="text-muted-foreground" />

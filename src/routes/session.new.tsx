@@ -5,11 +5,9 @@ import { AuthGate } from "@/components/AuthGate";
 import { useAuth } from "@/lib/auth-context";
 import {
   sessionStore,
-  uid,
   allCategories,
   customCategoriesStore,
-  prefsStore,
-  type PracticeCategory,
+  settingsStore,
 } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { BackButton } from "@/components/BackButton";
 import { Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/session/new")({
   component: () => (
@@ -33,47 +32,43 @@ function NewSession() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [duration, setDuration] = useState(30);
-  const [category, setCategory] = useState<PracticeCategory>("Technique");
+  const [category, setCategory] = useState<string>("Technique");
   const [goal, setGoal] = useState("");
   const [notes, setNotes] = useState("");
   const [newCat, setNewCat] = useState("");
   const [cats, setCats] = useState<string[]>([]);
-  const [nextFocus, setNextFocus] = useState<string | undefined>();
+  const [nextFocus, setNextFocus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    setCats(allCategories(user.id));
-    const prefs = prefsStore.get(user.id);
-    setNextFocus(prefs.next_focus);
+    allCategories(user.id).then(setCats);
+    settingsStore.get(user.id).then((s) => setNextFocus(s.next_focus));
   }, [user]);
 
-  function start(e: React.FormEvent) {
+  async function start(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
-    const id = uid();
-    const now = new Date().toISOString();
-    sessionStore.add({
-      id,
+    setBusy(true);
+    const created = await sessionStore.create({
       user_id: user.id,
-      date: now,
-      duration_minutes: duration,
       planned_duration_minutes: duration,
-      start_time: now,
-      status: "active",
-      category,
+      practice_category: category,
       session_goal: goal,
       pre_session_notes: notes,
-      distractions_count: 0,
-      completed: false,
-      created_at: now,
     });
-    navigate({ to: "/session/$id", params: { id } });
+    setBusy(false);
+    if (!created) {
+      toast.error("Could not start session.");
+      return;
+    }
+    navigate({ to: "/session/$id", params: { id: created.id } });
   }
 
-  function addCategory() {
+  async function addCategory() {
     if (!user || !newCat.trim()) return;
-    customCategoriesStore.add(user.id, newCat.trim());
-    setCats(allCategories(user.id));
+    await customCategoriesStore.add(user.id, newCat.trim());
+    setCats(await allCategories(user.id));
     setCategory(newCat.trim());
     setNewCat("");
   }
@@ -113,11 +108,7 @@ function NewSession() {
                 key={d}
                 type="button"
                 onClick={() => setDuration(d)}
-                className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
-                  duration === d
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card text-foreground"
-                }`}
+                className={`rounded-xl border px-3 py-3 text-sm transition-colors ${duration === d ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground"}`}
               >
                 {d} min
               </button>
@@ -125,9 +116,9 @@ function NewSession() {
           </div>
           <input
             type="range"
-            min={5}
+            min={1}
             max={180}
-            step={5}
+            step={1}
             value={duration}
             onChange={(e) => setDuration(Number(e.target.value))}
             className="mt-4 w-full accent-[var(--color-primary)]"
@@ -142,11 +133,7 @@ function NewSession() {
                 key={c}
                 type="button"
                 onClick={() => setCategory(c)}
-                className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
-                  category === c
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card text-muted-foreground"
-                }`}
+                className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${category === c ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}
               >
                 {c}
               </button>
@@ -190,8 +177,8 @@ function NewSession() {
           />
         </div>
 
-        <Button type="submit" className="h-12 w-full">
-          Begin session
+        <Button type="submit" disabled={busy} className="h-12 w-full">
+          {busy ? "Starting…" : "Begin session"}
         </Button>
       </form>
     </AppLayout>
