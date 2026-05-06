@@ -6,7 +6,6 @@ import { useAuth } from "@/lib/auth-context";
 import {
   sessionStore,
   PRACTICE_CATEGORIES,
-  type PracticeCategory,
   type PracticeSession,
 } from "@/lib/store";
 import { Link } from "@tanstack/react-router";
@@ -24,20 +23,20 @@ export const Route = createFileRoute("/history")({
 function History() {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<PracticeSession[]>([]);
-  const [filter, setFilter] = useState<PracticeCategory | "All">("All");
+  const [filter, setFilter] = useState<string>("All");
   const [minRating, setMinRating] = useState(0);
 
   useEffect(() => {
-    if (user)
-      setSessions(
-        sessionStore.list(user.id).filter((s) => s.status === "completed" || s.completed),
-      );
+    if (!user) return;
+    sessionStore.listCompleted(user.id).then(setSessions);
   }, [user]);
 
   const filtered = useMemo(
     () =>
       sessions.filter(
-        (s) => (filter === "All" || s.category === filter) && (s.focus_rating ?? 0) >= minRating,
+        (s) =>
+          (filter === "All" || s.practice_category === filter) &&
+          (s.focus_rating ?? 0) >= minRating,
       ),
     [sessions, filter, minRating],
   );
@@ -55,7 +54,7 @@ function History() {
         {(["All", ...PRACTICE_CATEGORIES] as const).map((c) => (
           <button
             key={c}
-            onClick={() => setFilter(c as typeof filter)}
+            onClick={() => setFilter(c)}
             className={`shrink-0 rounded-full border px-3 py-1.5 text-xs ${filter === c ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}
           >
             {c}
@@ -90,18 +89,18 @@ function History() {
               >
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                    {s.category}
+                    {s.practice_category ?? "Practice"}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {new Date(s.date).toLocaleDateString()}
+                    {new Date(s.created_at).toLocaleDateString()}
                   </p>
                 </div>
                 <p className="mt-1 font-serif text-lg">{s.session_goal}</p>
                 <div className="mt-3 grid grid-cols-4 gap-2 text-xs">
-                  <Mini label="Min" value={`${s.practice_minutes ?? s.duration_minutes}`} />
+                  <Mini label="Min" value={`${s.practice_minutes}`} />
                   <Mini label="Focus" value={`${s.focus_rating ?? "—"}/5`} />
                   <Mini label="Progress" value={`${s.progress_rating ?? "—"}/5`} />
-                  <Mini label="Distract" value={`${s.distractions_count}`} />
+                  <Mini label="Exits" value={`${s.exit_attempt_count}`} />
                 </div>
                 {s.what_improved && (
                   <p className="mt-3 text-xs text-muted-foreground">

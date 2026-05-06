@@ -5,8 +5,8 @@ import {
   sessionStore,
   journalStore,
   activeSessionStore,
+  exitAttemptsStore,
   profileStore,
-  uid,
   type PracticeSession,
   type JournalEntry,
 } from "@/lib/store";
@@ -42,60 +42,63 @@ function ActiveSession() {
   const [remaining, setRemaining] = useState(0);
   const [running, setRunning] = useState(true);
   const [distractions, setDistractions] = useState(0);
+  const [exitAttempts, setExitAttempts] = useState(0);
   const [strict, setStrict] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [sessionNotes, setSessionNotes] = useState<JournalEntry[]>([]);
   const [showMetronome, setShowMetronome] = useState(false);
   const [metronomeStopSignal, setMetronomeStopSignal] = useState(0);
   const finishedRef = useRef(false);
-  const alertedRef = useRef<{ ten: boolean; one: boolean; done: boolean }>({
-    ten: false,
-    one: false,
-    done: false,
-  });
+  const alertedRef = useRef({ ten: false, one: false, done: false });
   const startedAtRef = useRef<number>(Date.now());
   const isActiveSessionRoute = location.pathname === `/session/${id}`;
 
   // Load session + restore active state
   useEffect(() => {
-    if (!isActiveSessionRoute) return;
-    if (!user) return;
-    const s = sessionStore.get(user.id, id);
-    if (!s) {
-      navigate({ to: "/dashboard" });
-      return;
-    }
-    setSession(s);
-    const total = s.duration_minutes * 60;
-    setTotalSeconds(total);
-
-    const active = activeSessionStore.get(user.id);
-    if (active && active.session_id === id) {
-      const elapsed = active.paused
-        ? Math.floor(((active.paused_at ?? Date.now()) - active.started_at) / 1000)
-        : Math.floor((Date.now() - active.started_at) / 1000);
-      setRemaining(Math.max(0, active.duration_seconds - elapsed));
-      setRunning(!active.paused);
-      setDistractions(active.distractions);
-      setNoteDraft(active.notes_draft);
-      startedAtRef.current = active.started_at;
-    } else {
-      setRemaining(total);
-      setRunning(true);
-      startedAtRef.current = Date.now();
-      activeSessionStore.save({
-        session_id: s.id,
-        user_id: user.id,
-        started_at: startedAtRef.current,
-        duration_seconds: total,
-        remaining_seconds: total,
-        paused: false,
-        distractions: 0,
-        notes_draft: "",
-      });
-    }
-
-    setSessionNotes(journalStore.forSession(user.id, id));
+    if (!isActiveSessionRoute || !user) return;
+    sessionStore.get(user.id, id).then(async (s) => {
+      if (!s) {
+        navigate({ to: "/dashboard" });
+        return;
+      }
+      setSession(s);
+      const total = s.planned_duration_minutes * 60;
+      setTotalSeconds(total);
+      const active = activeSessionStore.get(user.id);
+      let wasResumed = false;
+      if (active && active.session_id === id) {
+        const elapsed = active.paused
+          ? Math.floor(((active.paused_at ?? Date.now()) - active.started_at) / 1000)
+          : Math.floor((Date.now() - active.started_at) / 1000);
+        setRemaining(Math.max(0, active.duration_seconds - elapsed));
+        setRunning(!active.paused);
+        setDistractions(active.distractions);
+        setExitAttempts(active.exit_attempts ?? 0);
+        setNoteDraft(active.notes_draft);
+        startedAtRef.current = active.started_at;
+        wasResumed = true;
+      } else {
+        setRemaining(total);
+        setRunning(true);
+        startedAtRef.current = Date.now();
+        activeSessionStore.save({
+          session_id: s.id,
+          user_id: user.id,
+          started_at: startedAtRef.current,
+          duration_seconds: total,
+          remaining_seconds: total,
+          paused: false,
+          distractions: 0,
+          exit_attempts: 0,
+          notes_draft: "",
+        });
+      }
+      if (wasResumed && !s.was_resumed) {
+        sessionStore.update(s.id, { was_resumed: true });
+      }
+      const notes = await journalStore.forSession(user.id, id);
+      setSessionNotes(notes);
+    });
   }, [id, user, navigate, isActiveSessionRoute]);
 
   // Tick
@@ -105,7 +108,7 @@ function ActiveSession() {
     return () => clearInterval(t);
   }, [running, isActiveSessionRoute]);
 
-  // Persist active state
+  // Persist active state locally
   useEffect(() => {
     if (!user || !session || finishedRef.current || !isActiveSessionRoute) return;
     activeSessionStore.save({
@@ -117,6 +120,7 @@ function ActiveSession() {
       paused: !running,
       paused_at: !running ? Date.now() : undefined,
       distractions,
+      exit_attempts: exitAttempts,
       notes_draft: noteDraft,
     });
   }, [
@@ -125,58 +129,72 @@ function ActiveSession() {
     running,
     remaining,
     distractions,
+    exitAttempts,
     noteDraft,
     totalSeconds,
     isActiveSessionRoute,
   ]);
 
-  // Distraction detection
+  function logExit(type: Parameters<typeof exitAttemptsStore.log>[0]["attempt_type"]) {
+    if (!user || !session || finishedRef.current) return;
+    setExitAttempts((n) => n + 1);
+    exitAttemptsStore.log({
+      user_id: user.id,
+      session_id: session.id,
+      attempt_type: type,
+      session_elapsed_seconds: Math.max(0, totalSeconds - remaining),
+    });
+  }
+
+  // Tab hidden detection (exit attempt + distraction)
   useEffect(() => {
     if (!isActiveSessionRoute) return;
     function onHidden() {
       if (document.visibilityState === "hidden") {
         setDistractions((d) => d + 1);
+        logExit("tab_hidden");
         if (strict) toast.warning("Stay in the session.");
       }
     }
     document.addEventListener("visibilitychange", onHidden);
     return () => document.removeEventListener("visibilitychange", onHidden);
-  }, [strict, isActiveSessionRoute]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [strict, isActiveSessionRoute, session, totalSeconds, remaining]);
 
-  // Warn before unloading
+  // beforeunload
   useEffect(() => {
     if (!isActiveSessionRoute) return;
     const handler = (e: BeforeUnloadEvent) => {
+      logExit("page_unload_attempt");
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [isActiveSessionRoute]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActiveSessionRoute, session, totalSeconds, remaining]);
 
   // Timer alerts
   useEffect(() => {
     if (!prefs?.session_alerts_enabled) return;
-    const fireAlert = (msg: string) => {
+    const fire = (msg: string) => {
       toast(msg);
       const t = prefs.alert_type;
       if ((t === "vibration" || t === "sound_vibration") && "vibrate" in navigator) {
         navigator.vibrate?.([120, 60, 120]);
       }
-      // Sound is the metronome's domain; alerts stay subtle.
-      // TODO (native): switch to native push notifications in mobile app build.
     };
     if (!alertedRef.current.ten && remaining === 600 && totalSeconds > 600) {
       alertedRef.current.ten = true;
-      fireAlert("10 minutes left — stay focused.");
+      fire("10 minutes left — stay focused.");
     }
     if (!alertedRef.current.one && remaining === 60 && totalSeconds > 60) {
       alertedRef.current.one = true;
-      fireAlert("1 minute left — finish strong.");
+      fire("1 minute left — finish strong.");
     }
     if (!alertedRef.current.done && remaining === 0) {
       alertedRef.current.done = true;
-      fireAlert("Session complete — time to reflect.");
+      fire("Session complete — time to reflect.");
     }
   }, [remaining, prefs, totalSeconds]);
 
@@ -192,9 +210,7 @@ function ActiveSession() {
   if (!isActiveSessionRoute) return <Outlet />;
   if (!session) return null;
 
-  const mm = Math.floor(remaining / 60)
-    .toString()
-    .padStart(2, "0");
+  const mm = Math.floor(remaining / 60).toString().padStart(2, "0");
   const ss = (remaining % 60).toString().padStart(2, "0");
   const pct = totalSeconds ? 1 - remaining / totalSeconds : 0;
 
@@ -206,82 +222,69 @@ function ActiveSession() {
     return `${Math.floor(e / 60)}:${(e % 60).toString().padStart(2, "0")} into session`;
   }
 
-  function saveQuickNote() {
+  async function saveQuickNote() {
     if (!user || !session) return;
     const content = noteDraft.trim();
     if (!content) return;
-    const profile = profileStore.get(user.id);
+    const profile = await profileStore.get(user.id);
     const now = new Date();
-    const title = `Quick Note — ${now.toLocaleDateString(undefined, { month: "short", day: "numeric" })}, ${now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
-    const entry: JournalEntry = {
-      id: uid(),
+    const title = `Quick Note — ${now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+    await journalStore.add({
       user_id: user.id,
       session_id: session.id,
       entry_type: "quick_note",
       title,
       content,
-      category: session.category,
-      instrument: profile?.main_instrument,
+      category: session.practice_category,
+      instrument: profile?.instrument ?? null,
       session_elapsed_seconds: elapsedSeconds(),
-      date: now.toISOString(),
-      created_at: now.toISOString(),
-      updated_at: now.toISOString(),
-    };
-    journalStore.add(entry);
-    setSessionNotes(journalStore.forSession(user.id, session.id));
+      tempo: null,
+      duration_minutes: null,
+      next_step: null,
+    });
+    const notes = await journalStore.forSession(user.id, session.id);
+    setSessionNotes(notes);
     setNoteDraft("");
     toast.success("Note saved to journal");
   }
 
-  function completeSession(reason: "manual_finish" | "timer_complete") {
+  async function completeSession(reason: "manual_finish" | "timer_complete") {
     if (!session || !user) return;
     if (finishedRef.current) return;
-    const fresh = sessionStore.get(user.id, session.id);
-    if (fresh?.status === "completed" || fresh?.completed) {
-      finishedRef.current = true;
-      try {
-        activeSessionStore.clear(user.id);
-      } catch {
-        /* noop */
-      }
-      navigate({ to: "/session/$id/reflect", params: { id: session.id } });
-      return;
-    }
     finishedRef.current = true;
     setRunning(false);
     setMetronomeStopSignal((n) => n + 1);
 
     const now = new Date().toISOString();
     const elapsedSec = elapsedSeconds();
-    const plannedMinutes = session.planned_duration_minutes ?? session.duration_minutes;
+    const planned = session.planned_duration_minutes;
     const practiceMinutes =
       reason === "timer_complete"
-        ? plannedMinutes
-        : Math.max(1, Math.min(plannedMinutes, Math.ceil(elapsedSec / 60)));
+        ? planned
+        : Math.max(1, Math.min(planned, Math.ceil(elapsedSec / 60)));
+    const focusScore = Math.max(
+      0,
+      Math.min(100, Math.round(100 - (distractions * 10 + exitAttempts * 5))),
+    );
 
-    const final: PracticeSession = {
-      ...session,
-      planned_duration_minutes: plannedMinutes,
-      duration_minutes: practiceMinutes,
-      practice_minutes: practiceMinutes,
-      elapsed_seconds: reason === "timer_complete" ? plannedMinutes * 60 : elapsedSec,
-      start_time: session.start_time ?? new Date(startedAtRef.current).toISOString(),
-      end_time: now,
-      status: "completed",
-      completion_method: reason,
-      distractions_count: distractions,
-      quick_notes: noteDraft || session.quick_notes,
-      completed: true,
-    };
     try {
-      sessionStore.update(final);
+      await sessionStore.update(session.id, {
+        status: "completed",
+        completion_method: reason,
+        end_time: now,
+        elapsed_seconds: reason === "timer_complete" ? planned * 60 : elapsedSec,
+        practice_minutes: practiceMinutes,
+        distraction_count: distractions,
+        exit_attempt_count: exitAttempts,
+        focus_score: focusScore,
+      });
     } catch (err) {
       console.error("Failed saving session", err);
     }
     try {
       activeSessionStore.clear(user.id);
     } catch {
-      /* ignore cleanup errors so navigation always proceeds */
+      /* ignore */
     }
     navigate({ to: "/session/$id/reflect", params: { id: session.id } });
   }
@@ -292,12 +295,21 @@ function ActiveSession() {
     completeSession("manual_finish");
   }
 
-  function abandon() {
+  async function abandon() {
     if (
       !confirm("End this session without saving a reflection? Your quick notes will still be kept.")
     )
       return;
-    if (user) activeSessionStore.clear(user.id);
+    if (user && session) {
+      await sessionStore.update(session.id, {
+        status: "abandoned",
+        end_time: new Date().toISOString(),
+        elapsed_seconds: elapsedSeconds(),
+        distraction_count: distractions,
+        exit_attempt_count: exitAttempts,
+      });
+      activeSessionStore.clear(user.id);
+    }
     navigate({ to: "/dashboard" });
   }
 
@@ -307,7 +319,7 @@ function ActiveSession() {
         <div className="flex items-center justify-between">
           <div className="min-w-0">
             <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
-              {session.category}
+              {session.practice_category}
             </p>
             <p className="mt-1 max-w-[18rem] truncate text-sm">{session.session_goal}</p>
           </div>
@@ -323,14 +335,7 @@ function ActiveSession() {
         <div className="my-8 flex flex-col items-center">
           <div className="relative h-60 w-60">
             <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-              <circle
-                cx="50"
-                cy="50"
-                r="46"
-                fill="none"
-                stroke="var(--color-border)"
-                strokeWidth="2"
-              />
+              <circle cx="50" cy="50" r="46" fill="none" stroke="var(--color-border)" strokeWidth="2" />
               <circle
                 cx="50"
                 cy="50"
@@ -386,7 +391,7 @@ function ActiveSession() {
               <AlertTriangle size={12} /> Distractions
             </div>
             <p className="mt-1 font-mono text-2xl">{distractions}</p>
-            <p className="text-[11px] text-muted-foreground">Tap to log</p>
+            <p className="text-[11px] text-muted-foreground">Tap to log · {exitAttempts} exits</p>
           </button>
           <div className="rounded-xl border border-border bg-card p-3">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -402,11 +407,9 @@ function ActiveSession() {
 
         {/* Quick note */}
         <div className="mt-5 rounded-2xl border border-border bg-card p-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Quick note · {elapsedLabel()}
-            </p>
-          </div>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Quick note · {elapsedLabel()}
+          </p>
           <textarea
             value={noteDraft}
             onChange={(e) => setNoteDraft(e.target.value)}
@@ -427,7 +430,7 @@ function ActiveSession() {
               {sessionNotes.slice(0, 3).map((n) => (
                 <li key={n.id} className="text-xs">
                   <p className="text-muted-foreground">
-                    {n.session_elapsed_seconds !== undefined
+                    {n.session_elapsed_seconds != null
                       ? `${Math.floor(n.session_elapsed_seconds / 60)}:${(n.session_elapsed_seconds % 60).toString().padStart(2, "0")}`
                       : ""}
                   </p>
@@ -438,7 +441,6 @@ function ActiveSession() {
           )}
         </div>
 
-        {/* Metronome */}
         <div className="mt-4">
           <button
             onClick={() => setShowMetronome((s) => !s)}
@@ -454,7 +456,6 @@ function ActiveSession() {
           )}
         </div>
 
-        {/* Other in-session tools */}
         <div className="mt-3 grid grid-cols-3 gap-2">
           <ToolCard icon={<Gauge size={14} />} label="Slow Downer" status="Coming soon" />
           <ToolCard icon={<Sparkles size={14} />} label="AI Assistant" status="Coming soon" />

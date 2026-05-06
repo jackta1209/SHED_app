@@ -1,12 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { profileStore, uid, type SkillLevel } from "@/lib/store";
+import { profileStore, type Profile, type SkillLevel } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/profile/setup")({
   component: ProfileSetup,
@@ -18,16 +24,34 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function ProfileSetup() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const existing = user ? profileStore.get(user.id) : null;
-  const [name, setName] = useState(existing?.name ?? "");
-  const [main, setMain] = useState(existing?.main_instrument ?? "");
-  const [secondary, setSecondary] = useState(existing?.secondary_instrument ?? "");
-  const [skill, setSkill] = useState<SkillLevel>(existing?.skill_level ?? "Intermediate");
-  const [goals, setGoals] = useState(existing?.goals ?? "");
-  const [weak, setWeak] = useState(existing?.weaknesses ?? "");
-  const [styles, setStyles] = useState(existing?.favorite_styles ?? "");
-  const [duration, setDuration] = useState(existing?.preferred_practice_duration ?? 45);
-  const [days, setDays] = useState<string[]>(existing?.typical_practice_days ?? ["Mon", "Tue", "Wed", "Thu", "Fri"]);
+  const [existing, setExisting] = useState<Profile | null>(null);
+  const [name, setName] = useState("");
+  const [main, setMain] = useState("");
+  const [secondary, setSecondary] = useState("");
+  const [skill, setSkill] = useState<SkillLevel>("Intermediate");
+  const [goals, setGoals] = useState("");
+  const [weak, setWeak] = useState("");
+  const [styles, setStyles] = useState("");
+  const [duration, setDuration] = useState(45);
+  const [days, setDays] = useState<string[]>(["Mon", "Tue", "Wed", "Thu", "Fri"]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    profileStore.get(user.id).then((p) => {
+      if (!p) return;
+      setExisting(p);
+      setName(p.display_name ?? "");
+      setMain(p.instrument ?? "");
+      setSecondary(p.secondary_instrument ?? "");
+      setSkill((p.skill_level as SkillLevel) ?? "Intermediate");
+      setGoals(p.goals ?? "");
+      setWeak(p.weaknesses ?? "");
+      setStyles(p.favorite_styles ?? "");
+      setDuration(p.preferred_practice_duration ?? 45);
+      if (p.typical_practice_days?.length) setDays(p.typical_practice_days);
+    });
+  }, [user]);
 
   if (!user) return null;
 
@@ -35,18 +59,23 @@ function ProfileSetup() {
     setDays((s) => (s.includes(d) ? s.filter((x) => x !== d) : [...s, d]));
   }
 
-  function save(e: React.FormEvent) {
+  async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
-    const now = new Date().toISOString();
-    profileStore.save({
-      id: existing?.id ?? uid(),
+    setBusy(true);
+    await profileStore.save({
       user_id: user.id,
-      name, main_instrument: main, secondary_instrument: secondary, skill_level: skill,
-      goals, weaknesses: weak, favorite_styles: styles,
-      preferred_practice_duration: duration, typical_practice_days: days,
-      created_at: existing?.created_at ?? now, updated_at: now,
+      display_name: name,
+      instrument: main,
+      secondary_instrument: secondary || null,
+      skill_level: skill,
+      goals,
+      weaknesses: weak,
+      favorite_styles: styles,
+      preferred_practice_duration: duration,
+      typical_practice_days: days,
     });
+    setBusy(false);
     navigate({ to: "/dashboard" });
   }
 
@@ -56,35 +85,74 @@ function ProfileSetup() {
         <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
           Profile
         </p>
-        <h1 className="mt-3 font-serif text-4xl">Tell us about your practice.</h1>
-        <p className="mt-2 text-sm text-muted-foreground">This shapes your routines and reflections.</p>
+        <h1 className="mt-3 font-serif text-4xl">
+          {existing ? "Update your profile." : "Tell us about your practice."}
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          This shapes your routines and reflections.
+        </p>
 
         <form onSubmit={save} className="mt-8 space-y-5">
-          <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} required className="bg-card h-11" /></Field>
-          <Field label="Main instrument"><Input value={main} onChange={(e) => setMain(e.target.value)} required placeholder="e.g. Tenor saxophone" className="bg-card h-11" /></Field>
-          <Field label="Secondary instrument (optional)"><Input value={secondary} onChange={(e) => setSecondary(e.target.value)} className="bg-card h-11" /></Field>
+          <Field label="Name">
+            <Input value={name} onChange={(e) => setName(e.target.value)} required className="bg-card h-11" />
+          </Field>
+          <Field label="Main instrument">
+            <Input
+              value={main}
+              onChange={(e) => setMain(e.target.value)}
+              required
+              placeholder="e.g. Tenor saxophone"
+              className="bg-card h-11"
+            />
+          </Field>
+          <Field label="Secondary instrument (optional)">
+            <Input value={secondary} onChange={(e) => setSecondary(e.target.value)} className="bg-card h-11" />
+          </Field>
           <Field label="Skill level">
             <Select value={skill} onValueChange={(v) => setSkill(v as SkillLevel)}>
-              <SelectTrigger className="bg-card h-11"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="bg-card h-11">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {(["Beginner","Intermediate","Advanced","Professional"] as SkillLevel[]).map((l) => (
-                  <SelectItem key={l} value={l}>{l}</SelectItem>
+                {(["Beginner", "Intermediate", "Advanced", "Professional"] as SkillLevel[]).map((l) => (
+                  <SelectItem key={l} value={l}>
+                    {l}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Main goals"><Textarea value={goals} onChange={(e) => setGoals(e.target.value)} rows={2} placeholder="e.g. Pass juries, learn 5 standards" className="bg-card" /></Field>
-          <Field label="Current weaknesses"><Textarea value={weak} onChange={(e) => setWeak(e.target.value)} rows={2} placeholder="e.g. Time feel at slow tempos" className="bg-card" /></Field>
-          <Field label="Favorite styles / genres"><Input value={styles} onChange={(e) => setStyles(e.target.value)} placeholder="e.g. Bebop, modern jazz" className="bg-card h-11" /></Field>
+          <Field label="Main goals">
+            <Textarea value={goals} onChange={(e) => setGoals(e.target.value)} rows={2} className="bg-card" />
+          </Field>
+          <Field label="Current weaknesses">
+            <Textarea value={weak} onChange={(e) => setWeak(e.target.value)} rows={2} className="bg-card" />
+          </Field>
+          <Field label="Favorite styles / genres">
+            <Input value={styles} onChange={(e) => setStyles(e.target.value)} className="bg-card h-11" />
+          </Field>
           <Field label={`Preferred daily practice — ${duration} min`}>
-            <input type="range" min={15} max={180} step={5} value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full accent-[var(--color-primary)]" />
+            <input
+              type="range"
+              min={15}
+              max={180}
+              step={5}
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              className="w-full accent-[var(--color-primary)]"
+            />
           </Field>
           <Field label="Typical practice days">
             <div className="flex flex-wrap gap-2">
               {DAYS.map((d) => {
                 const on = days.includes(d);
                 return (
-                  <button type="button" key={d} onClick={() => toggleDay(d)} className={`h-10 w-12 rounded-lg border text-xs font-medium transition-colors ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>
+                  <button
+                    type="button"
+                    key={d}
+                    onClick={() => toggleDay(d)}
+                    className={`h-10 w-12 rounded-lg border text-xs font-medium transition-colors ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}
+                  >
                     {d}
                   </button>
                 );
@@ -92,7 +160,9 @@ function ProfileSetup() {
             </div>
           </Field>
 
-          <Button type="submit" className="h-12 w-full">Save and enter</Button>
+          <Button type="submit" disabled={busy} className="h-12 w-full">
+            {busy ? "Saving…" : "Save and enter"}
+          </Button>
         </form>
       </div>
     </div>
