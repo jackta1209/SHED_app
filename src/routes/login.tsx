@@ -2,9 +2,11 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { profileStore } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -15,20 +17,28 @@ function LoginPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email) return;
-    if (mode === "signup") signUp(email);
-    else signIn(email);
-    // navigate after micro-tick so context updates
-    setTimeout(() => {
-      const u = JSON.parse(localStorage.getItem("shed.user") || "null");
-      if (u && profileStore.get(u.id)) navigate({ to: "/dashboard" });
-      else navigate({ to: "/profile/setup" });
-    }, 30);
+    if (!email || !password) return;
+    setBusy(true);
+    const res = mode === "signup" ? await signUp(email, password) : await signIn(email, password);
+    setBusy(false);
+    if (res.error) {
+      toast.error(res.error);
+      return;
+    }
+    // wait a tick for session/profile to load
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) {
+      toast.success("Check your email to confirm your account.");
+      return;
+    }
+    const profile = await profileStore.get(data.user.id);
+    navigate({ to: profile?.instrument ? "/dashboard" : "/profile/setup" });
   }
 
   return (
@@ -41,12 +51,16 @@ function LoginPage() {
           {mode === "signin" ? "Welcome back." : "Make space to practice."}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {mode === "signin" ? "Sign in to continue your work." : "Create an account to start tracking sessions."}
+          {mode === "signin"
+            ? "Sign in to continue your work."
+            : "Create an account to start tracking sessions."}
         </p>
 
         <form onSubmit={submit} className="mt-10 space-y-5">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-xs uppercase tracking-wider text-muted-foreground">Email</Label>
+            <Label htmlFor="email" className="text-xs uppercase tracking-wider text-muted-foreground">
+              Email
+            </Label>
             <Input
               id="email"
               type="email"
@@ -58,10 +72,17 @@ function LoginPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-xs uppercase tracking-wider text-muted-foreground">Password</Label>
+            <Label
+              htmlFor="password"
+              className="text-xs uppercase tracking-wider text-muted-foreground"
+            >
+              Password
+            </Label>
             <Input
               id="password"
               type="password"
+              required
+              minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="h-12 bg-card"
@@ -69,8 +90,8 @@ function LoginPage() {
             />
           </div>
 
-          <Button type="submit" className="h-12 w-full text-sm">
-            {mode === "signin" ? "Sign in" : "Create account"}
+          <Button type="submit" disabled={busy} className="h-12 w-full text-sm">
+            {busy ? "…" : mode === "signin" ? "Sign in" : "Create account"}
           </Button>
         </form>
 
@@ -81,10 +102,6 @@ function LoginPage() {
         >
           {mode === "signin" ? "New here? Create an account" : "Have an account? Sign in"}
         </button>
-
-        <p className="mt-10 text-center text-[11px] text-muted-foreground">
-          Local-only auth for this MVP. Connect Lovable Cloud to enable real accounts.
-        </p>
       </div>
     </div>
   );

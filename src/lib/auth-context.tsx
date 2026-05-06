@@ -1,25 +1,47 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { auth, prefsStore, type User, type UserPreferences } from "./store";
+import { supabase } from "@/integrations/supabase/client";
+import { settingsStore, type UserSettings } from "./store";
+import type { Session, User } from "@supabase/supabase-js";
 
 interface Ctx {
   user: User | null;
-  prefs: UserPreferences | null;
-  signIn: (email: string) => void;
-  signUp: (email: string) => void;
-  signOut: () => void;
-  refreshPrefs: () => void;
+  session: Session | null;
+  prefs: UserSettings | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  signOut: () => Promise<void>;
+  refreshPrefs: () => Promise<void>;
 }
 
 const AuthCtx = createContext<Ctx | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [prefs, setPrefs] = useState<UserPreferences | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [prefs, setPrefs] = useState<UserSettings | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const u = auth.current();
-    setUser(u);
-    if (u) setPrefs(prefsStore.get(u.id));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      setUser(s?.user ?? null);
+      if (s?.user) {
+        // defer DB call to avoid auth deadlock
+        setTimeout(() => {
+          settingsStore.get(s.user.id).then(setPrefs);
+        }, 0);
+      } else {
+        setPrefs(null);
+      }
+    });
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setUser(s?.user ?? null);
+      if (s?.user) settingsStore.get(s.user.id).then(setPrefs);
+      setLoading(false);
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   // apply theme
@@ -41,23 +63,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value: Ctx = {
     user,
+    session,
     prefs,
-    signIn: (email) => {
-      const u = auth.signIn(email);
-      setUser(u);
-      setPrefs(prefsStore.get(u.id));
+    loading,
+    signIn: async (email, password) => {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      return { error: error?.message ?? null };
     },
-    signUp: (email) => {
-      const u = auth.signUp(email);
-      setUser(u);
-      setPrefs(prefsStore.get(u.id));
+    signUp: async (email, password) => {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+      });
+      return { error: error?.message ?? null };
     },
-    signOut: () => {
-      auth.signOut();
-      setUser(null);
-      setPrefs(null);
+    signOut: async () => {
+      await supabase.auth.signOut();
     },
-    refreshPrefs: () => user && setPrefs(prefsStore.get(user.id)),
+    refreshPrefs: async () => {
+      if (user) setPrefs(await settingsStore.get(user.id));
+    },
   };
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
