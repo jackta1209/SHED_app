@@ -14,7 +14,352 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      journal_entries: {
+        Row: {
+          category: string | null
+          content: string | null
+          created_at: string
+          duration_minutes: number | null
+          entry_type: string
+          id: string
+          instrument: string | null
+          next_step: string | null
+          session_elapsed_seconds: number | null
+          session_id: string | null
+          tempo: number | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          content?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          entry_type?: string
+          id?: string
+          instrument?: string | null
+          next_step?: string | null
+          session_elapsed_seconds?: number | null
+          session_id?: string | null
+          tempo?: number | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          content?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          entry_type?: string
+          id?: string
+          instrument?: string | null
+          next_step?: string | null
+          session_elapsed_seconds?: number | null
+          session_id?: string | null
+          tempo?: number | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "practice_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      practice_sessions: {
+        Row: {
+          active_session_state: Json | null
+          completion_method: string | null
+          created_at: string
+          distraction_count: number
+          elapsed_seconds: number | null
+          end_time: string | null
+          exit_attempt_count: number
+          final_notes: string | null
+          focus_rating: number | null
+          focus_score: number | null
+          id: string
+          last_active_at: string | null
+          next_step: string | null
+          planned_duration_minutes: number
+          practice_category: string | null
+          practice_minutes: number | null
+          pre_session_notes: string | null
+          progress_rating: number | null
+          session_goal: string | null
+          start_time: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          was_resumed: boolean
+          what_improved: string | null
+          what_practiced: string | null
+          what_was_difficult: string | null
+        }
+        Insert: {
+          active_session_state?: Json | null
+          completion_method?: string | null
+          created_at?: string
+          distraction_count?: number
+          elapsed_seconds?: number | null
+          end_time?: string | null
+          exit_attempt_count?: number
+          final_notes?: string | null
+          focus_rating?: number | null
+          focus_score?: number | null
+          id?: string
+          last_active_at?: string | null
+          next_step?: string | null
+          planned_duration_minutes?: number
+          practice_category?: string | null
+          practice_minutes?: number | null
+          pre_session_notes?: string | null
+          progress_rating?: number | null
+          session_goal?: string | null
+          start_time?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          was_resumed?: boolean
+          what_improved?: string | null
+          what_practiced?: string | null
+          what_was_difficult?: string | null
+        }
+        Update: {
+          active_session_state?: Json | null
+          completion_method?: string | null
+          created_at?: string
+          distraction_count?: number
+          elapsed_seconds?: number | null
+          end_time?: string | null
+          exit_attempt_count?: number
+          final_notes?: string | null
+          focus_rating?: number | null
+          focus_score?: number | null
+          id?: string
+          last_active_at?: string | null
+          next_step?: string | null
+          planned_duration_minutes?: number
+          practice_category?: string | null
+          practice_minutes?: number | null
+          pre_session_notes?: string | null
+          progress_rating?: number | null
+          session_goal?: string | null
+          start_time?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          was_resumed?: boolean
+          what_improved?: string | null
+          what_practiced?: string | null
+          what_was_difficult?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          favorite_styles: string | null
+          goals: string | null
+          id: string
+          instrument: string | null
+          preferred_practice_duration: number | null
+          secondary_instrument: string | null
+          skill_level: string | null
+          typical_practice_days: string[] | null
+          updated_at: string
+          user_id: string
+          weaknesses: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          favorite_styles?: string | null
+          goals?: string | null
+          id?: string
+          instrument?: string | null
+          preferred_practice_duration?: number | null
+          secondary_instrument?: string | null
+          skill_level?: string | null
+          typical_practice_days?: string[] | null
+          updated_at?: string
+          user_id: string
+          weaknesses?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          favorite_styles?: string | null
+          goals?: string | null
+          id?: string
+          instrument?: string | null
+          preferred_practice_duration?: number | null
+          secondary_instrument?: string | null
+          skill_level?: string | null
+          typical_practice_days?: string[] | null
+          updated_at?: string
+          user_id?: string
+          weaknesses?: string | null
+        }
+        Relationships: []
+      }
+      repertoire_items: {
+        Row: {
+          category: string | null
+          composer_or_artist: string | null
+          created_at: string
+          current_tempo: number | null
+          id: string
+          last_practiced_date: string | null
+          notes: string | null
+          status: string | null
+          target_tempo: number | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          composer_or_artist?: string | null
+          created_at?: string
+          current_tempo?: number | null
+          id?: string
+          last_practiced_date?: string | null
+          notes?: string | null
+          status?: string | null
+          target_tempo?: number | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          composer_or_artist?: string | null
+          created_at?: string
+          current_tempo?: number | null
+          id?: string
+          last_practiced_date?: string | null
+          notes?: string | null
+          status?: string | null
+          target_tempo?: number | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      session_exit_attempts: {
+        Row: {
+          attempt_type: string
+          created_at: string
+          id: string
+          session_elapsed_seconds: number | null
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          attempt_type: string
+          created_at?: string
+          id?: string
+          session_elapsed_seconds?: number | null
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          attempt_type?: string
+          created_at?: string
+          id?: string
+          session_elapsed_seconds?: number | null
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_exit_attempts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "practice_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_settings: {
+        Row: {
+          alert_type: string | null
+          appearance_mode: string | null
+          created_at: string
+          default_instrument: string | null
+          default_practice_duration: number | null
+          id: string
+          next_focus: string | null
+          preferred_categories: string[] | null
+          session_alerts_enabled: boolean | null
+          updated_at: string
+          user_id: string
+          visual_theme: string | null
+        }
+        Insert: {
+          alert_type?: string | null
+          appearance_mode?: string | null
+          created_at?: string
+          default_instrument?: string | null
+          default_practice_duration?: number | null
+          id?: string
+          next_focus?: string | null
+          preferred_categories?: string[] | null
+          session_alerts_enabled?: boolean | null
+          updated_at?: string
+          user_id: string
+          visual_theme?: string | null
+        }
+        Update: {
+          alert_type?: string | null
+          appearance_mode?: string | null
+          created_at?: string
+          default_instrument?: string | null
+          default_practice_duration?: number | null
+          id?: string
+          next_focus?: string | null
+          preferred_categories?: string[] | null
+          session_alerts_enabled?: boolean | null
+          updated_at?: string
+          user_id?: string
+          visual_theme?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
