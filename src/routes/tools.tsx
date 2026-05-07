@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLayout, PageHeader, Section } from "@/components/AppLayout";
 import { AuthGate } from "@/components/AuthGate";
-import { Music2, FileMusic, Sparkles, ListMusic, Disc3, Mic, Activity } from "lucide-react";
+import { FileMusic, Sparkles, ListMusic, Disc3, Mic, Activity } from "lucide-react";
 import { Metronome } from "@/components/Metronome";
+import { SlowDowner } from "@/components/SlowDowner";
 import { BackButton } from "@/components/BackButton";
 
 export const Route = createFileRoute("/tools")({
@@ -17,12 +18,12 @@ function Tools() {
       <PageHeader eyebrow="Workspace" title="Tools" subtitle="A growing collection of focused practice utilities." />
       <Section title="Available">
         <Metronome />
+        <SlowDowner />
       </Section>
 
       <Section title="Coming soon">
         <div className="grid grid-cols-2 gap-3">
           {[
-            { Icon: Music2, label: "Audio Slow Downer" },
             { Icon: FileMusic, label: "Sheet Music Viewer" },
             { Icon: Sparkles, label: "AI Practice Assistant" },
             { Icon: ListMusic, label: "Lead Sheets" },
