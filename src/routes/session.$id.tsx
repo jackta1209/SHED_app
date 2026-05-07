@@ -48,6 +48,7 @@ function ActiveSession() {
   const [noteDraft, setNoteDraft] = useState("");
   const [sessionNotes, setSessionNotes] = useState<JournalEntry[]>([]);
   const [showMetronome, setShowMetronome] = useState(false);
+  const [showSlowDowner, setShowSlowDowner] = useState(false);
   const [metronomeStopSignal, setMetronomeStopSignal] = useState(0);
   const finishedRef = useRef(false);
   const alertedRef = useRef({ ten: false, one: false, done: false });
