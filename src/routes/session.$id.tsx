@@ -458,8 +458,26 @@ function ActiveSession() {
           )}
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <ToolCard icon={<Gauge size={14} />} label="Slow Downer" status="Coming soon" />
+        <div className="mt-3">
+          <button
+            onClick={() => setShowSlowDowner((s) => !s)}
+            className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm"
+          >
+            <span className="flex items-center gap-2"><Gauge size={14} /> Slow Downer</span>
+            {showSlowDowner ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+          {showSlowDowner && (
+            <div className="mt-2">
+              <SlowDowner
+                onInsertTimestamp={(label) =>
+                  setNoteDraft((d) => (d ? `${d} ${label}` : label))
+                }
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <ToolCard icon={<Sparkles size={14} />} label="AI Assistant" status="Coming soon" />
           <ToolCard icon={<FileMusic size={14} />} label="Sheet Reader" status="Coming soon" />
         </div>
