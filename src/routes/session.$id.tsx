@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import { Metronome } from "@/components/Metronome";
 import { SlowDowner } from "@/components/SlowDowner";
+import { SheetMusicReader } from "@/components/SheetMusicReader";
 
 export const Route = createFileRoute("/session/$id")({
   component: ActiveSession,
@@ -49,6 +50,7 @@ function ActiveSession() {
   const [sessionNotes, setSessionNotes] = useState<JournalEntry[]>([]);
   const [showMetronome, setShowMetronome] = useState(false);
   const [showSlowDowner, setShowSlowDowner] = useState(false);
+  const [showSheet, setShowSheet] = useState(false);
   const [metronomeStopSignal, setMetronomeStopSignal] = useState(0);
   const finishedRef = useRef(false);
   const alertedRef = useRef({ ten: false, one: false, done: false });
@@ -477,9 +479,23 @@ function ActiveSession() {
           )}
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-3">
+          <button
+            onClick={() => setShowSheet((s) => !s)}
+            className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm"
+          >
+            <span className="flex items-center gap-2"><FileMusic size={14} /> Sheet Music</span>
+            {showSheet ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+          {showSheet && (
+            <div className="mt-2">
+              <SheetMusicReader />
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 gap-2">
           <ToolCard icon={<Sparkles size={14} />} label="AI Assistant" status="Coming soon" />
-          <ToolCard icon={<FileMusic size={14} />} label="Sheet Reader" status="Coming soon" />
         </div>
       </div>
     </div>

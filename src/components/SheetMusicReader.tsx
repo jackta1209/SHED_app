@@ -1,0 +1,398 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import {
+  Upload,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+  Save,
+  X,
+  FileText,
+  ImageIcon,
+} from "lucide-react";
+import {
+  sheetMusicStore,
+  isSupported,
+  type SavedSheetMeta,
+} from "@/lib/sheet-music-storage";
+
+// Configure pdf.js worker (Vite-friendly)
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url,
+).toString();
+
+type Kind = "pdf" | "image" | null;
+
+function detectKind(name: string, type: string): Kind {
+  if (type === "application/pdf" || /\.pdf$/i.test(name)) return "pdf";
+  if (type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(name)) return "image";
+  return null;
+}
+
+export function SheetMusicReader() {
+  const [url, setUrl] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [kind, setKind] = useState<Kind>(null);
+  const [currentSavedId, setCurrentSavedId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [numPages, setNumPages] = useState(0);
+  const [zoom, setZoom] = useState(100);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [imgError, setImgError] = useState(false);
+  const [saved, setSaved] = useState<SavedSheetMeta[]>([]);
+  const [showLibrary, setShowLibrary] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const currentBlobRef = useRef<Blob | null>(null);
+  const currentUrlRef = useRef<string | null>(null);
+
+  // Load saved library on mount
+  useEffect(() => {
+    sheetMusicStore
+      .list()
+      .then(setSaved)
+      .catch((e) => {
+        console.warn("Sheet library unavailable:", e);
+      });
+  }, []);
+
+  // Cleanup object URL on unmount
+  useEffect(() => {
+    return () => {
+      if (currentUrlRef.current) {
+        URL.revokeObjectURL(currentUrlRef.current);
+        currentUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  function resetViewerState() {
+    setPage(1);
+    setZoom(100);
+    setNumPages(0);
+    setPdfError(null);
+    setImgError(false);
+  }
+
+  function loadBlob(blob: Blob, name: string, type: string, savedId: string | null) {
+    if (currentUrlRef.current) {
+      URL.revokeObjectURL(currentUrlRef.current);
+      currentUrlRef.current = null;
+    }
+    const next = URL.createObjectURL(blob);
+    currentUrlRef.current = next;
+    currentBlobRef.current = blob;
+    setUrl(next);
+    setFileName(name);
+    setKind(detectKind(name, type));
+    setCurrentSavedId(savedId);
+    resetViewerState();
+  }
+
+  async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!isSupported(file)) {
+      toast.error("Unsupported file. Use PDF, PNG, JPG, or WEBP.");
+      return;
+    }
+    loadBlob(file, file.name, file.type, null);
+  }
+
+  function clearCurrent() {
+    if (currentUrlRef.current) {
+      URL.revokeObjectURL(currentUrlRef.current);
+      currentUrlRef.current = null;
+    }
+    currentBlobRef.current = null;
+    setUrl(null);
+    setFileName(null);
+    setKind(null);
+    setCurrentSavedId(null);
+    resetViewerState();
+  }
+
+  async function saveCurrent() {
+    if (!currentBlobRef.current || !fileName) return;
+    if (currentSavedId) {
+      toast("Already in your library.");
+      return;
+    }
+    try {
+      const file = new File(
+        [currentBlobRef.current],
+        fileName,
+        { type: currentBlobRef.current.type || "application/octet-stream" },
+      );
+      const meta = await sheetMusicStore.save(file);
+      setSaved((prev) => [meta, ...prev]);
+      setCurrentSavedId(meta.id);
+      toast.success("Saved to local library.");
+    } catch (err) {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : "Could not save file.";
+      toast.error(msg.includes("quota") ? "Storage is full." : `Save failed: ${msg}`);
+    }
+  }
+
+  async function openSaved(id: string) {
+    try {
+      const rec = await sheetMusicStore.get(id);
+      if (!rec) {
+        toast.error("File not found.");
+        return;
+      }
+      loadBlob(rec.blob, rec.name, rec.type, rec.id);
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not open file.");
+    }
+  }
+
+  async function deleteSaved(id: string) {
+    if (!confirm("Delete this saved sheet music from this device?")) return;
+    try {
+      await sheetMusicStore.remove(id);
+      setSaved((prev) => prev.filter((s) => s.id !== id));
+      if (currentSavedId === id) clearCurrent();
+      toast.success("Deleted.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Delete failed.");
+    }
+  }
+
+  const zoomScale = zoom / 100;
+  const canPrev = page > 1;
+  const canNext = numPages > 0 && page < numPages;
+
+  const documentFile = useMemo(() => (url ? { url } : null), [url]);
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-3">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          Sheet Music Reader
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*"
+            onChange={onPickFile}
+            className="hidden"
+          />
+          <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+            <Upload size={12} className="mr-1" /> Import
+          </Button>
+        </div>
+      </div>
+
+      {/* Library */}
+      <div className="mt-3">
+        <button
+          onClick={() => setShowLibrary((s) => !s)}
+          className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+        >
+          Library ({saved.length}) {showLibrary ? "▾" : "▸"}
+        </button>
+        {showLibrary && (
+          <div className="mt-2">
+            {saved.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No saved sheet music yet. Import a file and tap Save.
+              </p>
+            ) : (
+              <ul className="max-h-40 space-y-1 overflow-y-auto pr-1">
+                {saved.map((s) => {
+                  const isOpen = s.id === currentSavedId;
+                  return (
+                    <li
+                      key={s.id}
+                      className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs ${
+                        isOpen ? "border-primary bg-primary/5" : "border-border bg-background"
+                      }`}
+                    >
+                      {detectKind(s.name, s.type) === "pdf" ? (
+                        <FileText size={12} className="shrink-0 text-muted-foreground" />
+                      ) : (
+                        <ImageIcon size={12} className="shrink-0 text-muted-foreground" />
+                      )}
+                      <button
+                        onClick={() => openSaved(s.id)}
+                        className="min-w-0 flex-1 truncate text-left"
+                        title={s.name}
+                      >
+                        {s.name}
+                      </button>
+                      <button
+                        onClick={() => deleteSaved(s.id)}
+                        aria-label={`Delete ${s.name}`}
+                        className="rounded p-1 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
+              Saved sheet music is stored locally on this device. It is not uploaded to SHED cloud
+              storage and does not sync across devices. Clearing browser data may remove it.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Viewer */}
+      {url && fileName ? (
+        <div className="mt-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="min-w-0 truncate text-xs" title={fileName}>
+              {fileName}
+            </p>
+            <div className="flex items-center gap-1">
+              {!currentSavedId && (
+                <Button size="sm" variant="ghost" onClick={saveCurrent} aria-label="Save to library">
+                  <Save size={12} className="mr-1" /> Save
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" onClick={clearCurrent} aria-label="Close file">
+                <X size={12} />
+              </Button>
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setZoom((z) => Math.max(50, z - 10))}
+                aria-label="Zoom out"
+                disabled={zoom <= 50}
+              >
+                <ZoomOut size={12} />
+              </Button>
+              <span className="min-w-[3rem] text-center font-mono text-xs tabular-nums">
+                {zoom}%
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setZoom((z) => Math.min(300, z + 10))}
+                aria-label="Zoom in"
+                disabled={zoom >= 300}
+              >
+                <ZoomIn size={12} />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setZoom(100)}
+                aria-label="Reset zoom"
+              >
+                <RotateCcw size={12} />
+              </Button>
+            </div>
+            {kind === "pdf" && numPages > 0 && (
+              <div className="ml-auto flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={!canPrev}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft size={12} />
+                </Button>
+                <span className="min-w-[3.5rem] text-center font-mono text-xs tabular-nums">
+                  {page} / {numPages}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.min(numPages, p + 1))}
+                  disabled={!canNext}
+                  aria-label="Next page"
+                >
+                  <ChevronRight size={12} />
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Stage */}
+          <div className="mt-2 max-h-[70vh] overflow-auto rounded-lg border border-border bg-background p-2">
+            {kind === "pdf" && documentFile && (
+              <>
+                {pdfError ? (
+                  <p className="p-4 text-center text-xs text-destructive">{pdfError}</p>
+                ) : (
+                  <Document
+                    file={documentFile}
+                    onLoadSuccess={({ numPages: n }) => {
+                      setNumPages(n);
+                      setPdfError(null);
+                    }}
+                    onLoadError={(err) => {
+                      console.error("PDF load error", err);
+                      setPdfError("Could not load this PDF.");
+                    }}
+                    loading={<p className="p-4 text-center text-xs text-muted-foreground">Loading PDF…</p>}
+                  >
+                    <Page
+                      pageNumber={page}
+                      scale={zoomScale}
+                      renderAnnotationLayer={false}
+                      renderTextLayer={false}
+                      width={Math.min(800, window.innerWidth - 80)}
+                    />
+                  </Document>
+                )}
+              </>
+            )}
+            {kind === "image" &&
+              (imgError ? (
+                <p className="p-4 text-center text-xs text-destructive">Could not load image.</p>
+              ) : (
+                <div className="flex justify-center">
+                  <img
+                    src={url}
+                    alt={fileName}
+                    onError={() => setImgError(true)}
+                    style={{
+                      width: `${zoom}%`,
+                      maxWidth: zoom <= 100 ? "100%" : "none",
+                      height: "auto",
+                    }}
+                    className="block"
+                  />
+                </div>
+              ))}
+            {kind === null && (
+              <p className="p-4 text-center text-xs text-destructive">Unsupported file type.</p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 rounded-lg border border-dashed border-border p-4 text-center">
+          <p className="text-xs text-muted-foreground">
+            Import a PDF or image (PNG, JPG, WEBP) to view sheet music. Save it to keep it on this
+            device.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
