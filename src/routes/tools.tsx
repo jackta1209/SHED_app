@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLayout, PageHeader, Section } from "@/components/AppLayout";
 import { AuthGate } from "@/components/AuthGate";
-import { Music2, FileMusic, Sparkles, ListMusic, Disc3, Mic, Activity } from "lucide-react";
+import { FileMusic, Sparkles, ListMusic, Disc3, Mic, Activity } from "lucide-react";
 import { Metronome } from "@/components/Metronome";
+import { SlowDowner } from "@/components/SlowDowner";
 import { BackButton } from "@/components/BackButton";
 
 export const Route = createFileRoute("/tools")({
