@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import { Metronome } from "@/components/Metronome";
 import { SlowDowner } from "@/components/SlowDowner";
+import { SheetMusicReader } from "@/components/SheetMusicReader";
 
 export const Route = createFileRoute("/session/$id")({
   component: ActiveSession,
