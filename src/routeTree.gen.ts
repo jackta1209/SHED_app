@@ -18,6 +18,7 @@ import { Route as JournalRouteImport } from './routes/journal'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AppearanceRouteImport } from './routes/appearance'
+import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SessionNewRouteImport } from './routes/session.new'
 import { Route as SessionIdRouteImport } from './routes/session.$id'
@@ -70,6 +71,11 @@ const AppearanceRoute = AppearanceRouteImport.update({
   path: '/appearance',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -103,6 +109,7 @@ const SessionIdReflectRoute = SessionIdReflectRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/appearance': typeof AppearanceRoute
   '/dashboard': typeof DashboardRoute
   '/history': typeof HistoryRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/appearance': typeof AppearanceRoute
   '/dashboard': typeof DashboardRoute
   '/history': typeof HistoryRoute
@@ -138,6 +146,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account': typeof AccountRoute
   '/appearance': typeof AppearanceRoute
   '/dashboard': typeof DashboardRoute
   '/history': typeof HistoryRoute
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account'
     | '/appearance'
     | '/dashboard'
     | '/history'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/account'
     | '/appearance'
     | '/dashboard'
     | '/history'
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/account'
     | '/appearance'
     | '/dashboard'
     | '/history'
@@ -209,6 +221,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountRoute: typeof AccountRoute
   AppearanceRoute: typeof AppearanceRoute
   DashboardRoute: typeof DashboardRoute
   HistoryRoute: typeof HistoryRoute
@@ -288,6 +301,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppearanceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -349,6 +369,7 @@ const SessionIdRouteWithChildren = SessionIdRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountRoute: AccountRoute,
   AppearanceRoute: AppearanceRoute,
   DashboardRoute: DashboardRoute,
   HistoryRoute: HistoryRoute,
