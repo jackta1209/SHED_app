@@ -22,8 +22,11 @@ import {
   isSupported,
   type SavedSheetMeta,
 } from "@/lib/sheet-music-storage";
+import { FullscreenShell, FullscreenButton } from "@/components/FullscreenShell";
 
-// Configure pdf.js worker (Vite-friendly)
+// Configure pdf.js worker. Use the bundled pdfjs-dist version (must match the
+// version react-pdf depends on — pinned in package.json) so the API and
+// Worker versions are identical.
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url,
