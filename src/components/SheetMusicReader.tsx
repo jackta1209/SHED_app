@@ -52,9 +52,25 @@ export function SheetMusicReader() {
   const [imgError, setImgError] = useState(false);
   const [saved, setSaved] = useState<SavedSheetMeta[]>([]);
   const [showLibrary, setShowLibrary] = useState(true);
+  const [fullscreen, setFullscreen] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageWidth, setStageWidth] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentBlobRef = useRef<Blob | null>(null);
   const currentUrlRef = useRef<string | null>(null);
+
+  // Track stage width so PDF pages render at the right size in both inline
+  // and fullscreen modes.
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      setStageWidth(el.clientWidth);
+    });
+    ro.observe(el);
+    setStageWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, [fullscreen, url]);
 
   // Load saved library on mount
   useEffect(() => {
