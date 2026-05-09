@@ -169,7 +169,20 @@ export function SheetMusicReader() {
         toast.error("File not found.");
         return;
       }
-      loadBlob(rec.blob, rec.name, rec.type, rec.id);
+      const inferred =
+        rec.type ||
+        (/\.pdf$/i.test(rec.name)
+          ? "application/pdf"
+          : /\.(png)$/i.test(rec.name)
+            ? "image/png"
+            : /\.(jpe?g)$/i.test(rec.name)
+              ? "image/jpeg"
+              : /\.webp$/i.test(rec.name)
+                ? "image/webp"
+                : "application/octet-stream");
+      const typedBlob =
+        rec.blob.type === inferred ? rec.blob : new Blob([rec.blob], { type: inferred });
+      loadBlob(typedBlob, rec.name, inferred, rec.id);
     } catch (err) {
       console.error(err);
       toast.error("Could not open file.");
