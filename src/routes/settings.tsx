@@ -35,6 +35,7 @@ function SettingsPage() {
         <Row to="/appearance" Icon={Palette} label="Appearance" hint={`${prefs?.appearance_mode ?? "dark"} · ${prefs?.visual_theme ?? "minimal"}`} />
         <Row to="/reminders" Icon={Bell} label="Reminders" hint="Daily practice nudge" />
         <Row to="/history" Icon={BookOpen} label="Practice history" hint="All completed sessions" />
+        <Row to="/account" Icon={ShieldAlert} label="Account" hint="Delete account" />
       </ul>
 
       <Section title="Roadmap">
