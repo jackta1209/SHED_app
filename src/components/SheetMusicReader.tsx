@@ -209,7 +209,12 @@ export function SheetMusicReader() {
   const documentFile = useMemo(() => (url ? { url } : null), [url]);
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-3">
+    <FullscreenShell
+      active={fullscreen}
+      onToggle={() => setFullscreen((v) => !v)}
+      title="Sheet Music Reader"
+    >
+    <div className={fullscreen ? "h-full" : "rounded-2xl border border-border bg-card p-3"}>
       <div className="flex items-center justify-between">
         <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
           Sheet Music Reader
@@ -225,6 +230,7 @@ export function SheetMusicReader() {
           <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
             <Upload size={12} className="mr-1" /> Import
           </Button>
+          <FullscreenButton active={fullscreen} onToggle={() => setFullscreen((v) => !v)} />
         </div>
       </div>
 
