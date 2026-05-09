@@ -67,7 +67,7 @@ function SettingsPage() {
   );
 }
 
-function Row({ to, Icon, label, hint }: { to: "/profile/setup" | "/appearance" | "/reminders" | "/history"; Icon: typeof User; label: string; hint?: string }) {
+function Row({ to, Icon, label, hint }: { to: "/profile/setup" | "/appearance" | "/reminders" | "/history" | "/account"; Icon: typeof User; label: string; hint?: string }) {
   return (
     <li>
       <Link to={to} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
