@@ -22,8 +22,11 @@ import {
   isSupported,
   type SavedSheetMeta,
 } from "@/lib/sheet-music-storage";
+import { FullscreenShell, FullscreenButton } from "@/components/FullscreenShell";
 
-// Configure pdf.js worker (Vite-friendly)
+// Configure pdf.js worker. Use the bundled pdfjs-dist version (must match the
+// version react-pdf depends on — pinned in package.json) so the API and
+// Worker versions are identical.
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url,
@@ -49,9 +52,25 @@ export function SheetMusicReader() {
   const [imgError, setImgError] = useState(false);
   const [saved, setSaved] = useState<SavedSheetMeta[]>([]);
   const [showLibrary, setShowLibrary] = useState(true);
+  const [fullscreen, setFullscreen] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageWidth, setStageWidth] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentBlobRef = useRef<Blob | null>(null);
   const currentUrlRef = useRef<string | null>(null);
+
+  // Track stage width so PDF pages render at the right size in both inline
+  // and fullscreen modes.
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      setStageWidth(el.clientWidth);
+    });
+    ro.observe(el);
+    setStageWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, [fullscreen, url]);
 
   // Load saved library on mount
   useEffect(() => {
@@ -150,7 +169,20 @@ export function SheetMusicReader() {
         toast.error("File not found.");
         return;
       }
-      loadBlob(rec.blob, rec.name, rec.type, rec.id);
+      const inferred =
+        rec.type ||
+        (/\.pdf$/i.test(rec.name)
+          ? "application/pdf"
+          : /\.(png)$/i.test(rec.name)
+            ? "image/png"
+            : /\.(jpe?g)$/i.test(rec.name)
+              ? "image/jpeg"
+              : /\.webp$/i.test(rec.name)
+                ? "image/webp"
+                : "application/octet-stream");
+      const typedBlob =
+        rec.blob.type === inferred ? rec.blob : new Blob([rec.blob], { type: inferred });
+      loadBlob(typedBlob, rec.name, inferred, rec.id);
     } catch (err) {
       console.error(err);
       toast.error("Could not open file.");
@@ -177,7 +209,12 @@ export function SheetMusicReader() {
   const documentFile = useMemo(() => (url ? { url } : null), [url]);
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-3">
+    <FullscreenShell
+      active={fullscreen}
+      onToggle={() => setFullscreen((v) => !v)}
+      title="Sheet Music Reader"
+    >
+    <div className={fullscreen ? "h-full" : "rounded-2xl border border-border bg-card p-3"}>
       <div className="flex items-center justify-between">
         <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
           Sheet Music Reader
@@ -193,6 +230,7 @@ export function SheetMusicReader() {
           <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
             <Upload size={12} className="mr-1" /> Import
           </Button>
+          <FullscreenButton active={fullscreen} onToggle={() => setFullscreen((v) => !v)} />
         </div>
       </div>
 
@@ -333,7 +371,15 @@ export function SheetMusicReader() {
           </div>
 
           {/* Stage */}
-          <div className="mt-2 max-h-[70vh] overflow-auto rounded-lg border border-border bg-background p-2">
+          <div
+            ref={stageRef}
+            className={
+              fullscreen
+                ? "mt-2 overflow-auto rounded-lg border border-border bg-background p-2"
+                : "mt-2 max-h-[70vh] overflow-auto rounded-lg border border-border bg-background p-2"
+            }
+            style={fullscreen ? { maxHeight: "calc(100vh - 220px)" } : undefined}
+          >
             {kind === "pdf" && documentFile && (
               <>
                 {pdfError ? (
@@ -356,7 +402,11 @@ export function SheetMusicReader() {
                       scale={zoomScale}
                       renderAnnotationLayer={false}
                       renderTextLayer={false}
-                      width={Math.min(800, window.innerWidth - 80)}
+                      width={
+                        stageWidth > 0
+                          ? Math.max(200, stageWidth - 16)
+                          : Math.min(800, (typeof window !== "undefined" ? window.innerWidth : 800) - 80)
+                      }
                     />
                   </Document>
                 )}
@@ -394,5 +444,6 @@ export function SheetMusicReader() {
         </div>
       )}
     </div>
+    </FullscreenShell>
   );
 }

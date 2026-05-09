@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppLayout, PageHeader, Section } from "@/components/AppLayout";
 import { AuthGate } from "@/components/AuthGate";
 import { useAuth } from "@/lib/auth-context";
-import { ChevronRight, User, Bell, Palette, LogOut, Map, BookOpen } from "lucide-react";
+import { ChevronRight, User, Bell, Palette, LogOut, Map, BookOpen, ShieldAlert } from "lucide-react";
 
 export const Route = createFileRoute("/settings")({
   component: () => <AuthGate><SettingsPage /></AuthGate>,
@@ -35,6 +35,7 @@ function SettingsPage() {
         <Row to="/appearance" Icon={Palette} label="Appearance" hint={`${prefs?.appearance_mode ?? "dark"} · ${prefs?.visual_theme ?? "minimal"}`} />
         <Row to="/reminders" Icon={Bell} label="Reminders" hint="Daily practice nudge" />
         <Row to="/history" Icon={BookOpen} label="Practice history" hint="All completed sessions" />
+        <Row to="/account" Icon={ShieldAlert} label="Account" hint="Delete account" />
       </ul>
 
       <Section title="Roadmap">
@@ -66,7 +67,7 @@ function SettingsPage() {
   );
 }
 
-function Row({ to, Icon, label, hint }: { to: "/profile/setup" | "/appearance" | "/reminders" | "/history"; Icon: typeof User; label: string; hint?: string }) {
+function Row({ to, Icon, label, hint }: { to: "/profile/setup" | "/appearance" | "/reminders" | "/history" | "/account"; Icon: typeof User; label: string; hint?: string }) {
   return (
     <li>
       <Link to={to} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
