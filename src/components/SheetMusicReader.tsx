@@ -371,7 +371,15 @@ export function SheetMusicReader() {
           </div>
 
           {/* Stage */}
-          <div className="mt-2 max-h-[70vh] overflow-auto rounded-lg border border-border bg-background p-2">
+          <div
+            ref={stageRef}
+            className={
+              fullscreen
+                ? "mt-2 overflow-auto rounded-lg border border-border bg-background p-2"
+                : "mt-2 max-h-[70vh] overflow-auto rounded-lg border border-border bg-background p-2"
+            }
+            style={fullscreen ? { maxHeight: "calc(100vh - 220px)" } : undefined}
+          >
             {kind === "pdf" && documentFile && (
               <>
                 {pdfError ? (
@@ -394,7 +402,11 @@ export function SheetMusicReader() {
                       scale={zoomScale}
                       renderAnnotationLayer={false}
                       renderTextLayer={false}
-                      width={Math.min(800, window.innerWidth - 80)}
+                      width={
+                        stageWidth > 0
+                          ? Math.max(200, stageWidth - 16)
+                          : Math.min(800, (typeof window !== "undefined" ? window.innerWidth : 800) - 80)
+                      }
                     />
                   </Document>
                 )}
@@ -432,5 +444,6 @@ export function SheetMusicReader() {
         </div>
       )}
     </div>
+    </FullscreenShell>
   );
 }
