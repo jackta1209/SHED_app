@@ -2,3 +2,6 @@ project_id = "eyjvwllkjldkabebdkcx"
 
 [functions.delete-user-account]
 verify_jwt = true
+
+[functions.ai-practice-assistant]
+verify_jwt = true
