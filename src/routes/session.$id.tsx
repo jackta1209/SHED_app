@@ -52,6 +52,7 @@ function ActiveSession() {
   const [showMetronome, setShowMetronome] = useState(false);
   const [showSlowDowner, setShowSlowDowner] = useState(false);
   const [showSheet, setShowSheet] = useState(false);
+  const [showAssistant, setShowAssistant] = useState(false);
   const [metronomeStopSignal, setMetronomeStopSignal] = useState(0);
   const finishedRef = useRef(false);
   const alertedRef = useRef({ ten: false, one: false, done: false });
