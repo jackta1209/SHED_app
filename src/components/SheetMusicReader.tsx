@@ -55,6 +55,9 @@ export function SheetMusicReader() {
   const [saved, setSaved] = useState<SavedSheetMeta[]>([]);
   const [showLibrary, setShowLibrary] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
+  const [reading, setReading] = useState(false);
+  const readingStageRef = useRef<HTMLDivElement>(null);
+  const [readingWidth, setReadingWidth] = useState<number>(0);
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageWidth, setStageWidth] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
