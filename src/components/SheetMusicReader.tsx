@@ -330,6 +330,15 @@ export function SheetMusicReader() {
               {fileName}
             </p>
             <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setReading(true)}
+                aria-label="Open Reading Mode"
+                title="Score-focused Reading Mode"
+              >
+                <BookOpen size={12} className="mr-1" /> Reading Mode
+              </Button>
               {!currentSavedId && (
                 <Button size="sm" variant="ghost" onClick={saveCurrent} aria-label="Save to library">
                   <Save size={12} className="mr-1" /> Save
