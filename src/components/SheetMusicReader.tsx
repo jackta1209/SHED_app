@@ -484,6 +484,128 @@ export function SheetMusicReader() {
         </div>
       )}
     </div>
+    {reading && url && fileName && typeof document !== "undefined" &&
+      createPortal(
+        <div className="fixed inset-0 z-[110] flex flex-col bg-background">
+          <div
+            ref={readingStageRef}
+            className="flex-1 overflow-auto bg-background"
+            style={{ paddingBottom: "5rem" }}
+          >
+            {kind === "pdf" && documentFile && !pdfError && (
+              <div className="flex justify-center p-2">
+                <Document
+                  file={documentFile}
+                  onLoadSuccess={({ numPages: n }) => setNumPages(n)}
+                  onLoadError={(err) => {
+                    console.error("PDF load error", err);
+                    setPdfError("Could not load this PDF.");
+                  }}
+                  loading={
+                    <p className="p-4 text-center text-xs text-muted-foreground">
+                      Loading PDF…
+                    </p>
+                  }
+                >
+                  <Page
+                    pageNumber={page}
+                    scale={zoomScale}
+                    renderAnnotationLayer={false}
+                    renderTextLayer={false}
+                    width={
+                      readingWidth > 0
+                        ? Math.max(280, readingWidth - 16)
+                        : Math.min(
+                            1200,
+                            (typeof window !== "undefined" ? window.innerWidth : 1200) - 16,
+                          )
+                    }
+                  />
+                </Document>
+              </div>
+            )}
+            {kind === "pdf" && pdfError && (
+              <p className="p-6 text-center text-xs text-destructive">{pdfError}</p>
+            )}
+            {kind === "image" && !imgError && (
+              <div className="flex justify-center p-2">
+                <img
+                  src={url}
+                  alt={fileName}
+                  onError={() => setImgError(true)}
+                  style={{
+                    width: `${zoom}%`,
+                    maxWidth: zoom <= 100 ? "100%" : "none",
+                    height: "auto",
+                  }}
+                  className="block"
+                />
+              </div>
+            )}
+            {kind === "image" && imgError && (
+              <p className="p-6 text-center text-xs text-destructive">Could not load image.</p>
+            )}
+          </div>
+
+          {/* Floating compact controls */}
+          <div
+            className="fixed inset-x-0 bottom-0 z-[120] flex items-center justify-center gap-2 border-t border-border bg-background/95 px-3 py-2 backdrop-blur"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
+          >
+            <Button size="sm" variant="ghost" onClick={() => setReading(false)} aria-label="Close Reading Mode">
+              <X size={14} />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setZoom((z) => Math.max(50, z - 10))}
+              disabled={zoom <= 50}
+              aria-label="Zoom out"
+            >
+              <ZoomOut size={14} />
+            </Button>
+            <span className="min-w-[3rem] text-center font-mono text-xs tabular-nums">{zoom}%</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setZoom((z) => Math.min(300, z + 10))}
+              disabled={zoom >= 300}
+              aria-label="Zoom in"
+            >
+              <ZoomIn size={14} />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setZoom(100)} aria-label="Fit/Reset zoom">
+              <RotateCcw size={14} />
+            </Button>
+            {kind === "pdf" && numPages > 0 && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={!canPrev}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft size={14} />
+                </Button>
+                <span className="min-w-[3.5rem] text-center font-mono text-xs tabular-nums">
+                  {page} / {numPages}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.min(numPages, p + 1))}
+                  disabled={!canNext}
+                  aria-label="Next page"
+                >
+                  <ChevronRight size={14} />
+                </Button>
+              </>
+            )}
+          </div>
+        </div>,
+        document.body,
+      )}
     </FullscreenShell>
   );
 }
