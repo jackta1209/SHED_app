@@ -33,6 +33,7 @@ Rules:
 interface ReqBody {
   message?: string;
   action?: string;
+  session_context?: Record<string, unknown>;
 }
 
 Deno.serve(async (req) => {
