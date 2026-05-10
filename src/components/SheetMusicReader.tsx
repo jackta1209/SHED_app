@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -16,6 +17,7 @@ import {
   X,
   FileText,
   ImageIcon,
+  BookOpen,
 } from "lucide-react";
 import {
   sheetMusicStore,
