@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppLayout, PageHeader, Section } from "@/components/AppLayout";
 import { AuthGate } from "@/components/AuthGate";
 import { Sparkles, ListMusic, Disc3, Mic, Activity } from "lucide-react";
@@ -18,6 +18,21 @@ function Tools() {
       <BackButton fallback="/dashboard" />
       <PageHeader eyebrow="Workspace" title="Tools" subtitle="A growing collection of focused practice utilities." />
       <Section title="Available">
+        <Link
+          to="/assistant"
+          className="mb-3 flex items-center justify-between rounded-2xl border border-border bg-card p-4 hover:border-primary"
+        >
+          <div className="flex items-center gap-3">
+            <Sparkles size={18} className="text-primary" />
+            <div>
+              <p className="text-sm font-medium">AI Practice Assistant</p>
+              <p className="text-[11px] text-muted-foreground">
+                Plan, analyze, and improve your practice.
+              </p>
+            </div>
+          </div>
+          <span className="text-xs text-muted-foreground">Open →</span>
+        </Link>
         <Metronome />
         <SlowDowner />
         <SheetMusicReader />
@@ -26,7 +41,6 @@ function Tools() {
       <Section title="Coming soon">
         <div className="grid grid-cols-2 gap-3">
           {[
-            { Icon: Sparkles, label: "AI Practice Assistant" },
             { Icon: ListMusic, label: "Lead Sheets" },
             { Icon: Disc3, label: "Backing Tracks" },
             { Icon: Mic, label: "Recording Tool" },

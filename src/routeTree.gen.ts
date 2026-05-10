@@ -17,6 +17,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as AssistantRouteImport } from './routes/assistant'
 import { Route as AppearanceRouteImport } from './routes/appearance'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
@@ -66,6 +67,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AssistantRoute = AssistantRouteImport.update({
+  id: '/assistant',
+  path: '/assistant',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppearanceRoute = AppearanceRouteImport.update({
   id: '/appearance',
   path: '/appearance',
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/appearance': typeof AppearanceRoute
+  '/assistant': typeof AssistantRoute
   '/dashboard': typeof DashboardRoute
   '/history': typeof HistoryRoute
   '/journal': typeof JournalRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/appearance': typeof AppearanceRoute
+  '/assistant': typeof AssistantRoute
   '/dashboard': typeof DashboardRoute
   '/history': typeof HistoryRoute
   '/journal': typeof JournalRoute
@@ -148,6 +156,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/appearance': typeof AppearanceRoute
+  '/assistant': typeof AssistantRoute
   '/dashboard': typeof DashboardRoute
   '/history': typeof HistoryRoute
   '/journal': typeof JournalRoute
@@ -168,6 +177,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/appearance'
+    | '/assistant'
     | '/dashboard'
     | '/history'
     | '/journal'
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/appearance'
+    | '/assistant'
     | '/dashboard'
     | '/history'
     | '/journal'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/appearance'
+    | '/assistant'
     | '/dashboard'
     | '/history'
     | '/journal'
@@ -223,6 +235,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
   AppearanceRoute: typeof AppearanceRoute
+  AssistantRoute: typeof AssistantRoute
   DashboardRoute: typeof DashboardRoute
   HistoryRoute: typeof HistoryRoute
   JournalRoute: typeof JournalRoute
@@ -292,6 +305,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assistant': {
+      id: '/assistant'
+      path: '/assistant'
+      fullPath: '/assistant'
+      preLoaderRoute: typeof AssistantRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/appearance': {
@@ -371,6 +391,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
   AppearanceRoute: AppearanceRoute,
+  AssistantRoute: AssistantRoute,
   DashboardRoute: DashboardRoute,
   HistoryRoute: HistoryRoute,
   JournalRoute: JournalRoute,
