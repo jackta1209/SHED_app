@@ -18,6 +18,21 @@ function Tools() {
       <BackButton fallback="/dashboard" />
       <PageHeader eyebrow="Workspace" title="Tools" subtitle="A growing collection of focused practice utilities." />
       <Section title="Available">
+        <Link
+          to="/assistant"
+          className="mb-3 flex items-center justify-between rounded-2xl border border-border bg-card p-4 hover:border-primary"
+        >
+          <div className="flex items-center gap-3">
+            <Sparkles size={18} className="text-primary" />
+            <div>
+              <p className="text-sm font-medium">AI Practice Assistant</p>
+              <p className="text-[11px] text-muted-foreground">
+                Plan, analyze, and improve your practice.
+              </p>
+            </div>
+          </div>
+          <span className="text-xs text-muted-foreground">Open →</span>
+        </Link>
         <Metronome />
         <SlowDowner />
         <SheetMusicReader />
