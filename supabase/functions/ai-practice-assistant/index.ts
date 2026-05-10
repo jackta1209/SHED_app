@@ -33,6 +33,7 @@ Rules:
 interface ReqBody {
   message?: string;
   action?: string;
+  session_context?: Record<string, unknown>;
 }
 
 Deno.serve(async (req) => {
@@ -134,9 +135,21 @@ Deno.serve(async (req) => {
       next_step: truncate(j.next_step, 200),
     }));
 
+    // Sanitize client-supplied session context: cap size, ignore non-plain values.
+    let activeSession: Record<string, unknown> | null = null;
+    if (body.session_context && typeof body.session_context === "object") {
+      try {
+        const trimmed = JSON.stringify(body.session_context).slice(0, 2000);
+        activeSession = JSON.parse(trimmed);
+      } catch {
+        activeSession = null;
+      }
+    }
+
     const context = {
       now: new Date().toISOString(),
       profile,
+      active_session: activeSession,
       recent_sessions: sessions,
       recent_journal: journal,
       recent_exit_attempts: exitsRes.data ?? [],

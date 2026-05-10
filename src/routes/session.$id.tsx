@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { Metronome } from "@/components/Metronome";
 import { SlowDowner } from "@/components/SlowDowner";
 import { SheetMusicReader } from "@/components/SheetMusicReader";
+import { AssistantChat, SESSION_QUICK_ACTIONS } from "@/components/AssistantChat";
 
 export const Route = createFileRoute("/session/$id")({
   component: ActiveSession,
@@ -51,6 +52,7 @@ function ActiveSession() {
   const [showMetronome, setShowMetronome] = useState(false);
   const [showSlowDowner, setShowSlowDowner] = useState(false);
   const [showSheet, setShowSheet] = useState(false);
+  const [showAssistant, setShowAssistant] = useState(false);
   const [metronomeStopSignal, setMetronomeStopSignal] = useState(0);
   const finishedRef = useRef(false);
   const alertedRef = useRef({ ten: false, one: false, done: false });
@@ -494,29 +496,45 @@ function ActiveSession() {
           )}
         </div>
 
-        <div className="mt-3 grid grid-cols-1 gap-2">
-          <ToolCard icon={<Sparkles size={14} />} label="AI Assistant" status="Coming soon" />
+        <div className="mt-3">
+          <button
+            onClick={() => setShowAssistant((s) => !s)}
+            className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm"
+          >
+            <span className="flex items-center gap-2"><Sparkles size={14} /> AI Assistant</span>
+            {showAssistant ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+          {showAssistant && (
+            <div className="mt-2 rounded-xl border border-border bg-card p-3">
+              <AssistantChat
+                embedded
+                quickActions={SESSION_QUICK_ACTIONS}
+                placeholder="Ask about this session…"
+                sessionContext={{
+                  in_active_session: true,
+                  session_id: session.id,
+                  session_goal: session.session_goal,
+                  practice_category: session.practice_category,
+                  planned_duration_minutes: session.planned_duration_minutes,
+                  elapsed_seconds: Math.max(0, totalSeconds - remaining),
+                  remaining_seconds: remaining,
+                  timer_running: running,
+                  distractions,
+                  exit_attempts: exitAttempts,
+                  quick_note_draft: noteDraft ? noteDraft.slice(0, 500) : null,
+                  notes_count: sessionNotes.length,
+                  active_tools: {
+                    metronome: showMetronome,
+                    slow_downer: showSlowDowner,
+                    sheet_music: showSheet,
+                  },
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function ToolCard({
-  icon,
-  label,
-  status,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  status: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-3 text-left opacity-80">
-      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
-        {icon} <span className="truncate">{label}</span>
-      </div>
-      <p className="mt-1 text-[10px] text-muted-foreground">{status}</p>
-    </div>
-  );
-}
