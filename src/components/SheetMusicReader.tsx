@@ -77,6 +77,32 @@ export function SheetMusicReader() {
     return () => ro.disconnect();
   }, [fullscreen, url]);
 
+  // Track reading-mode stage width separately.
+  useEffect(() => {
+    if (!reading) return;
+    const el = readingStageRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setReadingWidth(el.clientWidth));
+    ro.observe(el);
+    setReadingWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, [reading, url]);
+
+  // Lock body scroll + Esc-to-close while in Reading Mode.
+  useEffect(() => {
+    if (!reading) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setReading(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [reading]);
+
   // Load saved library on mount
   useEffect(() => {
     sheetMusicStore
