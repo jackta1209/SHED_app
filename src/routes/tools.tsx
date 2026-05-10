@@ -41,7 +41,6 @@ function Tools() {
       <Section title="Coming soon">
         <div className="grid grid-cols-2 gap-3">
           {[
-            { Icon: Sparkles, label: "AI Practice Assistant" },
             { Icon: ListMusic, label: "Lead Sheets" },
             { Icon: Disc3, label: "Backing Tracks" },
             { Icon: Mic, label: "Recording Tool" },
