@@ -15,6 +15,8 @@ import {
   Clock,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Waveform } from "@/components/Waveform";
+import { FullscreenShell, FullscreenButton } from "@/components/FullscreenShell";
 
 type Marker = { id: string; label: string; time: number };
 
