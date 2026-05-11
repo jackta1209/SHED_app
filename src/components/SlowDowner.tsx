@@ -55,6 +55,9 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
   const [loopA, setLoopA] = useState<number | null>(null);
   const [loopB, setLoopB] = useState<number | null>(null);
   const [markers, setMarkers] = useState<Marker[]>([]);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  const mediaRef = mediaType === "video" ? videoRef : audioRef;
 
   function getMedia(): HTMLMediaElement | null {
     return mediaType === "video" ? videoRef.current : audioRef.current;
