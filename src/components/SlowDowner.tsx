@@ -15,6 +15,8 @@ import {
   Clock,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Waveform } from "@/components/Waveform";
+import { FullscreenShell, FullscreenButton } from "@/components/FullscreenShell";
 
 type Marker = { id: string; label: string; time: number };
 
@@ -53,6 +55,9 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
   const [loopA, setLoopA] = useState<number | null>(null);
   const [loopB, setLoopB] = useState<number | null>(null);
   const [markers, setMarkers] = useState<Marker[]>([]);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  const mediaRef = mediaType === "video" ? videoRef : audioRef;
 
   function getMedia(): HTMLMediaElement | null {
     return mediaType === "video" ? videoRef.current : audioRef.current;
@@ -196,20 +201,24 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
   const speedPct = Math.round(speed * 100);
 
   return (
+    <FullscreenShell active={fullscreen} onToggle={() => setFullscreen((v) => !v)} title="Slow Downer">
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">Slow Downer</p>
-        <label className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-          <input
-            type="file"
-            accept="audio/*,video/*"
-            className="hidden"
-            onChange={handleFile}
-          />
-          <span className="inline-flex items-center gap-1">
-            <Upload size={12} /> Import
-          </span>
-        </label>
+        <div className="flex items-center gap-2">
+          <label className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+            <input
+              type="file"
+              accept="audio/*,video/*"
+              className="hidden"
+              onChange={handleFile}
+            />
+            <span className="inline-flex items-center gap-1">
+              <Upload size={12} /> Import
+            </span>
+          </label>
+          <FullscreenButton active={fullscreen} onToggle={() => setFullscreen((v) => !v)} />
+        </div>
       </div>
 
       {!mediaUrl && (
@@ -264,6 +273,21 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
           <div className="mt-3 truncate text-[11px] text-muted-foreground">
             {fileName} · {mediaType}
             {pitchPreserved === false ? " · pitch lock unavailable" : ""}
+          </div>
+
+          {/* Waveform */}
+          <div className="mt-3">
+            <Waveform
+              mediaUrl={mediaUrl}
+              mediaRef={mediaRef}
+              duration={duration}
+              currentTime={currentTime}
+              playing={playing}
+              loopA={loopA}
+              loopB={loopB}
+              onSeek={(t) => seek(t)}
+              height={fullscreen ? 220 : 96}
+            />
           </div>
 
           {/* Scrubber */}
@@ -472,5 +496,6 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
       )}
       {compact ? null : null}
     </div>
+    </FullscreenShell>
   );
 }
