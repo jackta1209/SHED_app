@@ -201,20 +201,24 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
   const speedPct = Math.round(speed * 100);
 
   return (
+    <FullscreenShell active={fullscreen} onToggle={() => setFullscreen((v) => !v)} title="Slow Downer">
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">Slow Downer</p>
-        <label className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-          <input
-            type="file"
-            accept="audio/*,video/*"
-            className="hidden"
-            onChange={handleFile}
-          />
-          <span className="inline-flex items-center gap-1">
-            <Upload size={12} /> Import
-          </span>
-        </label>
+        <div className="flex items-center gap-2">
+          <label className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+            <input
+              type="file"
+              accept="audio/*,video/*"
+              className="hidden"
+              onChange={handleFile}
+            />
+            <span className="inline-flex items-center gap-1">
+              <Upload size={12} /> Import
+            </span>
+          </label>
+          <FullscreenButton active={fullscreen} onToggle={() => setFullscreen((v) => !v)} />
+        </div>
       </div>
 
       {!mediaUrl && (
