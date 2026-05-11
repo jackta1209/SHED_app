@@ -481,5 +481,6 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
       )}
       {compact ? null : null}
     </div>
+    </FullscreenShell>
   );
 }
