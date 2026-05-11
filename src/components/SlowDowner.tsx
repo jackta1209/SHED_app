@@ -275,6 +275,21 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
             {pitchPreserved === false ? " · pitch lock unavailable" : ""}
           </div>
 
+          {/* Waveform */}
+          <div className="mt-3">
+            <Waveform
+              mediaUrl={mediaUrl}
+              mediaRef={mediaRef}
+              duration={duration}
+              currentTime={currentTime}
+              playing={playing}
+              loopA={loopA}
+              loopB={loopB}
+              onSeek={(t) => seek(t)}
+              height={fullscreen ? 220 : 96}
+            />
+          </div>
+
           {/* Scrubber */}
           <div className="mt-3">
             <input
