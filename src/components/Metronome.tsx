@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Gauge, Maximize2, Minimize2, Play, Square, Volume2, VolumeX, X } from "lucide-react";
 import { createPortal } from "react-dom";
