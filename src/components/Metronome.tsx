@@ -9,32 +9,29 @@ import { toast } from "sonner";
  *
  * Public API preserved for existing callers:
  *   <Metronome compact stopSignal={n} />
- *
- * Engine: lookahead scheduler (Chris Wilson pattern). A 25ms setInterval looks
- * 100ms ahead and schedules click oscillators on exact AudioContext times so
- * tempo is sample-accurate regardless of main-thread jitter.
- *
- * Beat states cycle: accent → normal → off (and back).
- * Subdivisions: none / eighths / triplets / sixteenths — quieter clicks placed
- * between main beats.
- *
- * NOTE: A per-tool usage log table is not yet present in the schema; per spec
- * we leave a TODO and do not block the metronome on logging.
  */
 
 type BeatState = "accent" | "normal" | "off";
-type Subdivision = 1 | 2 | 3 | 4; // clicks per beat (1 = none)
+type Subdivision = 1 | 2 | 3 | 4;
+type SoundKind = "click" | "woodblock" | "beep" | "cowbell";
 
 const MIN_BPM = 20;
 const MAX_BPM = 300;
 const LOOKAHEAD_MS = 25;
-const SCHEDULE_AHEAD = 0.1; // seconds
+const SCHEDULE_AHEAD = 0.1;
 
 const SUBDIV_LABEL: Record<Subdivision, string> = {
   1: "None",
   2: "8ths",
   3: "Triplets",
   4: "16ths",
+};
+
+const SOUND_LABEL: Record<SoundKind, string> = {
+  click: "Classic Click",
+  woodblock: "Woodblock",
+  beep: "Beep",
+  cowbell: "Cowbell",
 };
 
 interface Preset {
@@ -58,12 +55,117 @@ const TS_OPTIONS = [
 ] as const;
 const DEN_OPTIONS = [2, 4, 8, 16] as const;
 
+const GAP_PRESETS: { name: string; on: number; off: number }[] = [
+  { name: "1 on / 1 off", on: 1, off: 1 },
+  { name: "2 on / 2 off", on: 2, off: 2 },
+  { name: "4 on / 4 off", on: 4, off: 4 },
+  { name: "1 on / 2 off", on: 1, off: 2 },
+  { name: "1 on / 3 off", on: 1, off: 3 },
+];
+
 function clampBpm(v: number) {
   if (!Number.isFinite(v)) return 80;
   return Math.max(MIN_BPM, Math.min(MAX_BPM, Math.round(v)));
 }
+function clampBars(v: number) {
+  if (!Number.isFinite(v)) return 1;
+  return Math.max(1, Math.min(16, Math.round(v)));
+}
 function defaultBeats(n: number): BeatState[] {
   return Array.from({ length: n }, (_, i) => (i === 0 ? "accent" : "normal"));
+}
+
+// ---------- Sound synthesis ----------
+// Each sound returns audio nodes scheduled at `time`. `kind` is which beat
+// type (accent/normal/sub). All routed to `out` (master gain).
+function scheduleSound(
+  ctx: AudioContext,
+  out: GainNode,
+  time: number,
+  sound: SoundKind,
+  kind: "accent" | "normal" | "sub",
+) {
+  const accent = kind === "accent";
+  const sub = kind === "sub";
+
+  if (sound === "click") {
+    // Original oscillator click
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    let freq = 900, peak = 0.5, dur = 0.05;
+    if (accent) { freq = 1500; peak = 0.7; dur = 0.06; }
+    else if (sub) { freq = 700; peak = 0.22; dur = 0.035; }
+    osc.frequency.value = freq;
+    env.gain.setValueAtTime(0.0001, time);
+    env.gain.exponentialRampToValueAtTime(peak, time + 0.003);
+    env.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    osc.connect(env).connect(out);
+    osc.start(time);
+    osc.stop(time + dur + 0.02);
+    return;
+  }
+
+  if (sound === "beep") {
+    // Pure sine beep, sustained slightly
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.type = "sine";
+    let freq = 880, peak = 0.45, dur = 0.08;
+    if (accent) { freq = 1320; peak = 0.6; dur = 0.1; }
+    else if (sub) { freq = 660; peak = 0.18; dur = 0.05; }
+    osc.frequency.value = freq;
+    env.gain.setValueAtTime(0.0001, time);
+    env.gain.exponentialRampToValueAtTime(peak, time + 0.005);
+    env.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    osc.connect(env).connect(out);
+    osc.start(time);
+    osc.stop(time + dur + 0.02);
+    return;
+  }
+
+  if (sound === "woodblock") {
+    // Triangle + quick decay → woody pluck
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.type = "triangle";
+    let freq = 1200, peak = 0.55, dur = 0.04;
+    if (accent) { freq = 1800; peak = 0.75; dur = 0.045; }
+    else if (sub) { freq = 950; peak = 0.2; dur = 0.025; }
+    osc.frequency.setValueAtTime(freq * 1.6, time);
+    osc.frequency.exponentialRampToValueAtTime(freq, time + 0.01);
+    env.gain.setValueAtTime(0.0001, time);
+    env.gain.exponentialRampToValueAtTime(peak, time + 0.002);
+    env.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    osc.connect(env).connect(out);
+    osc.start(time);
+    osc.stop(time + dur + 0.02);
+    return;
+  }
+
+  if (sound === "cowbell") {
+    // Two detuned squares through bandpass → cowbell-ish
+    const o1 = ctx.createOscillator();
+    const o2 = ctx.createOscillator();
+    const bp = ctx.createBiquadFilter();
+    const env = ctx.createGain();
+    o1.type = "square"; o2.type = "square";
+    let f1 = 800, f2 = 540, peak = 0.35, dur = 0.18;
+    if (accent) { f1 = 900; f2 = 620; peak = 0.5; dur = 0.22; }
+    else if (sub) { f1 = 700; f2 = 480; peak = 0.14; dur = 0.08; }
+    o1.frequency.value = f1;
+    o2.frequency.value = f2;
+    bp.type = "bandpass";
+    bp.frequency.value = (f1 + f2) / 2;
+    bp.Q.value = 4;
+    env.gain.setValueAtTime(0.0001, time);
+    env.gain.exponentialRampToValueAtTime(peak, time + 0.003);
+    env.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+    o1.connect(bp); o2.connect(bp);
+    bp.connect(env).connect(out);
+    o1.start(time); o2.start(time);
+    o1.stop(time + dur + 0.02); o2.stop(time + dur + 0.02);
+    return;
+  }
 }
 
 export function Metronome({
@@ -73,7 +175,6 @@ export function Metronome({
   compact?: boolean;
   stopSignal?: number;
 }) {
-  // ---- UI state (persisted across fullscreen because component instance is reused) ----
   const [bpm, setBpm] = useState(80);
   const [bpmInput, setBpmInput] = useState("80");
   const [num, setNum] = useState(4);
@@ -84,15 +185,22 @@ export function Metronome({
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(0.7);
   const [fullscreen, setFullscreen] = useState(false);
-  const [currentBeat, setCurrentBeat] = useState(-1); // -1 when stopped
+  const [currentBeat, setCurrentBeat] = useState(-1);
+  const [sound, setSound] = useState<SoundKind>("click");
 
-  // ---- Refs the scheduler reads (avoid re-creating timer on every change) ----
+  // Gap mode
+  const [gapOn, setGapOn] = useState(false);
+  const [barsOn, setBarsOn] = useState(1);
+  const [barsOff, setBarsOff] = useState(1);
+  const [barInCycle, setBarInCycle] = useState(0); // 0..(barsOn+barsOff-1)
+
   const ctxRef = useRef<AudioContext | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
   const timerRef = useRef<number | null>(null);
   const nextNoteTimeRef = useRef(0);
-  const beatRef = useRef(0); // index into beats[]
-  const subRef = useRef(0);  // 0..subdivision-1
+  const beatRef = useRef(0);
+  const subRef = useRef(0);
+  const barRef = useRef(0); // bar position within gap cycle
 
   const bpmRef = useRef(bpm);
   const numRef = useRef(num);
@@ -100,11 +208,15 @@ export function Metronome({
   const subdivisionRef = useRef(subdivision);
   const mutedRef = useRef(muted);
   const volumeRef = useRef(volume);
+  const soundRef = useRef(sound);
+  const gapOnRef = useRef(gapOn);
+  const barsOnRef = useRef(barsOn);
+  const barsOffRef = useRef(barsOff);
 
   const tapsRef = useRef<number[]>([]);
 
-  // Visual highlight scheduling — queue (beatIndex, audioTime) and flush via rAF.
-  const visualQueueRef = useRef<{ beat: number; time: number }[]>([]);
+  // Visual queue: queue (beat, bar, time) and flush via rAF.
+  const visualQueueRef = useRef<{ beat: number; bar: number; time: number }[]>([]);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => { bpmRef.current = bpm; }, [bpm]);
@@ -112,6 +224,10 @@ export function Metronome({
   useEffect(() => { beatsRef.current = beats; }, [beats]);
   useEffect(() => { subdivisionRef.current = subdivision; }, [subdivision]);
   useEffect(() => { mutedRef.current = muted; }, [muted]);
+  useEffect(() => { soundRef.current = sound; }, [sound]);
+  useEffect(() => { gapOnRef.current = gapOn; }, [gapOn]);
+  useEffect(() => { barsOnRef.current = barsOn; }, [barsOn]);
+  useEffect(() => { barsOffRef.current = barsOff; }, [barsOff]);
   useEffect(() => {
     volumeRef.current = volume;
     if (masterGainRef.current && ctxRef.current) {
@@ -119,7 +235,6 @@ export function Metronome({
     }
   }, [volume]);
 
-  // ---- Audio setup ----
   const ensureCtx = useCallback(() => {
     if (!ctxRef.current) {
       const Ctor =
@@ -136,25 +251,15 @@ export function Metronome({
     return ctxRef.current;
   }, []);
 
-  const scheduleClick = useCallback((time: number, kind: "accent" | "normal" | "sub") => {
+  const playClick = useCallback((time: number, kind: "accent" | "normal" | "sub") => {
     if (mutedRef.current) return;
-    const ctx = ctxRef.current!;
-    const out = masterGainRef.current!;
-    const osc = ctx.createOscillator();
-    const env = ctx.createGain();
-    let freq = 900, peak = 0.5, dur = 0.05;
-    if (kind === "accent") { freq = 1500; peak = 0.7; dur = 0.06; }
-    else if (kind === "sub") { freq = 700; peak = 0.22; dur = 0.035; }
-    osc.frequency.value = freq;
-    env.gain.setValueAtTime(0.0001, time);
-    env.gain.exponentialRampToValueAtTime(peak, time + 0.003);
-    env.gain.exponentialRampToValueAtTime(0.0001, time + dur);
-    osc.connect(env).connect(out);
-    osc.start(time);
-    osc.stop(time + dur + 0.02);
+    const ctx = ctxRef.current;
+    const out = masterGainRef.current;
+    if (!ctx || !out) return;
+    scheduleSound(ctx, out, time, soundRef.current, kind);
   }, []);
 
-  // ---- Scheduler ----
+  // Scheduler
   const scheduler = useCallback(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
@@ -165,28 +270,44 @@ export function Metronome({
       const sIdx = subRef.current;
       const state: BeatState = beatsRef.current[bIdx] ?? "normal";
 
+      // Determine if current bar is audible in gap mode
+      const gap = gapOnRef.current;
+      const on = Math.max(1, barsOnRef.current);
+      const off = Math.max(1, barsOffRef.current);
+      const cycle = on + off;
+      const audible = !gap || (barRef.current % cycle) < on;
+
       if (sIdx === 0) {
-        // Main beat
-        if (state === "accent") scheduleClick(t, "accent");
-        else if (state === "normal") scheduleClick(t, "normal");
-        // off → silent
-        visualQueueRef.current.push({ beat: bIdx, time: t });
+        if (audible) {
+          if (state === "accent") playClick(t, "accent");
+          else if (state === "normal") playClick(t, "normal");
+        }
+        visualQueueRef.current.push({ beat: bIdx, bar: barRef.current, time: t });
       } else {
-        // Subdivision: only sound if main beat isn't off
-        if (state !== "off") scheduleClick(t, "sub");
+        if (audible && state !== "off") playClick(t, "sub");
       }
 
-      // Advance
       const secondsPerBeat = 60 / bpmRef.current;
       nextNoteTimeRef.current += secondsPerBeat / sub;
       subRef.current += 1;
       if (subRef.current >= sub) {
         subRef.current = 0;
-        const n = numRef.current;
-        beatRef.current = (beatRef.current + 1) % Math.max(1, n);
+        const n = Math.max(1, numRef.current);
+        const nextBeat = beatRef.current + 1;
+        if (nextBeat >= n) {
+          beatRef.current = 0;
+          // Advance bar
+          if (gap) {
+            barRef.current = (barRef.current + 1) % cycle;
+          } else {
+            barRef.current = 0;
+          }
+        } else {
+          beatRef.current = nextBeat;
+        }
       }
     }
-  }, [scheduleClick]);
+  }, [playClick]);
 
   // Visual playhead loop
   useEffect(() => {
@@ -194,18 +315,23 @@ export function Metronome({
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
       setCurrentBeat(-1);
+      setBarInCycle(0);
       return;
     }
     const tick = () => {
       const ctx = ctxRef.current;
       if (ctx) {
         const now = ctx.currentTime;
-        let next: number | null = null;
+        let nextBeat: number | null = null;
+        let nextBar: number | null = null;
         const q = visualQueueRef.current;
         while (q.length && q[0].time <= now) {
-          next = q.shift()!.beat;
+          const ev = q.shift()!;
+          nextBeat = ev.beat;
+          nextBar = ev.bar;
         }
-        if (next !== null) setCurrentBeat(next);
+        if (nextBeat !== null) setCurrentBeat(nextBeat);
+        if (nextBar !== null) setBarInCycle(nextBar);
       }
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -216,12 +342,20 @@ export function Metronome({
     };
   }, [running]);
 
-  // Start/stop control
+  const resetCycle = useCallback(() => {
+    beatRef.current = 0;
+    subRef.current = 0;
+    barRef.current = 0;
+    nextNoteTimeRef.current = (ctxRef.current?.currentTime ?? 0) + 0.05;
+    visualQueueRef.current = [];
+  }, []);
+
   const start = useCallback(() => {
     if (running) return;
     const ctx = ensureCtx();
     beatRef.current = 0;
     subRef.current = 0;
+    barRef.current = 0;
     nextNoteTimeRef.current = ctx.currentTime + 0.06;
     visualQueueRef.current = [];
     if (timerRef.current) window.clearInterval(timerRef.current);
@@ -237,14 +371,13 @@ export function Metronome({
     visualQueueRef.current = [];
     setRunning(false);
     setCurrentBeat(-1);
+    setBarInCycle(0);
   }, []);
 
   const toggle = useCallback(() => { running ? stop() : start(); }, [running, start, stop]);
 
-  // External stop signal (used by parent screens)
   useEffect(() => { if (stopSignal > 0) stop(); }, [stopSignal, stop]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
@@ -257,7 +390,6 @@ export function Metronome({
     };
   }, []);
 
-  // ---- Mutators ----
   const applyBpm = (v: number) => {
     const c = clampBpm(v);
     setBpm(c);
@@ -273,13 +405,7 @@ export function Metronome({
       if (safe < prev.length) return prev.slice(0, safe);
       return [...prev, ...defaultBeats(safe - prev.length).map((_, i) => (prev.length + i === 0 ? "accent" : "normal" as BeatState))];
     });
-    if (running) {
-      // Resync to beat 1 of new bar without retriggering audio gap
-      beatRef.current = 0;
-      subRef.current = 0;
-      nextNoteTimeRef.current = (ctxRef.current?.currentTime ?? 0) + 0.05;
-      visualQueueRef.current = [];
-    }
+    if (running) resetCycle();
   };
 
   const setDenominator = (d: number) => setDen(d);
@@ -299,12 +425,7 @@ export function Metronome({
     setDen(p.den);
     setBeats(p.beats.slice());
     setSubdivision(p.sub);
-    if (running) {
-      beatRef.current = 0;
-      subRef.current = 0;
-      nextNoteTimeRef.current = (ctxRef.current?.currentTime ?? 0) + 0.05;
-      visualQueueRef.current = [];
-    }
+    if (running) resetCycle();
   };
 
   const tap = () => {
@@ -330,14 +451,55 @@ export function Metronome({
     applyBpm(n);
   };
 
-  // Resync when subdivision changes mid-play
   useEffect(() => {
     if (!running || !ctxRef.current) return;
     subRef.current = 0;
     nextNoteTimeRef.current = ctxRef.current.currentTime + 0.05;
   }, [subdivision, running]);
 
-  // ---- Body (shared between compact, default, and fullscreen) ----
+  // Reset gap cycle when gap settings change while running
+  const setBarsOnSafe = (v: number) => {
+    setBarsOn(clampBars(v));
+    if (running && gapOnRef.current) {
+      barRef.current = 0;
+      beatRef.current = 0;
+      subRef.current = 0;
+      nextNoteTimeRef.current = (ctxRef.current?.currentTime ?? 0) + 0.05;
+      visualQueueRef.current = [];
+    }
+  };
+  const setBarsOffSafe = (v: number) => {
+    setBarsOff(clampBars(v));
+    if (running && gapOnRef.current) {
+      barRef.current = 0;
+      beatRef.current = 0;
+      subRef.current = 0;
+      nextNoteTimeRef.current = (ctxRef.current?.currentTime ?? 0) + 0.05;
+      visualQueueRef.current = [];
+    }
+  };
+  const setGapOnSafe = (v: boolean) => {
+    setGapOn(v);
+    if (running) {
+      barRef.current = 0;
+      beatRef.current = 0;
+      subRef.current = 0;
+      nextNoteTimeRef.current = (ctxRef.current?.currentTime ?? 0) + 0.05;
+      visualQueueRef.current = [];
+    }
+  };
+  const applyGapPreset = (on: number, off: number) => {
+    setBarsOn(on);
+    setBarsOff(off);
+    if (running && gapOnRef.current) {
+      barRef.current = 0;
+      beatRef.current = 0;
+      subRef.current = 0;
+      nextNoteTimeRef.current = (ctxRef.current?.currentTime ?? 0) + 0.05;
+      visualQueueRef.current = [];
+    }
+  };
+
   const body = (
     <MetronomeBody
       compact={compact}
@@ -365,6 +527,16 @@ export function Metronome({
       setVolume={setVolume}
       onPreset={applyPreset}
       onFullscreen={() => setFullscreen((f) => !f)}
+      sound={sound}
+      setSound={setSound}
+      gapOn={gapOn}
+      setGapOn={setGapOnSafe}
+      barsOn={barsOn}
+      setBarsOn={setBarsOnSafe}
+      barsOff={barsOff}
+      setBarsOff={setBarsOffSafe}
+      barInCycle={barInCycle}
+      onGapPreset={applyGapPreset}
     />
   );
 
@@ -415,10 +587,29 @@ interface BodyProps {
   setVolume: (v: number) => void;
   onPreset: (p: Preset) => void;
   onFullscreen: () => void;
+  sound: SoundKind;
+  setSound: (s: SoundKind) => void;
+  gapOn: boolean;
+  setGapOn: (v: boolean) => void;
+  barsOn: number;
+  setBarsOn: (n: number) => void;
+  barsOff: number;
+  setBarsOff: (n: number) => void;
+  barInCycle: number;
+  onGapPreset: (on: number, off: number) => void;
 }
 
 function MetronomeBody(p: BodyProps) {
   const big = p.fullscreen;
+  const cycle = Math.max(1, p.barsOn) + Math.max(1, p.barsOff);
+  const posInCycle = p.barInCycle % cycle;
+  const isAudible = !p.gapOn || posInCycle < p.barsOn;
+  const phaseLabel = !p.gapOn
+    ? null
+    : isAudible
+      ? `Audible bar ${posInCycle + 1} of ${p.barsOn}`
+      : `Silent bar ${posInCycle - p.barsOn + 1} of ${p.barsOff}`;
+
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -439,7 +630,6 @@ function MetronomeBody(p: BodyProps) {
         </div>
       </div>
 
-      {/* BPM display */}
       <div className={big ? "my-4 text-center" : p.compact ? "my-2 text-center" : "my-4 text-center"}>
         <p className={`font-mono tabular-nums ${big ? "text-7xl" : p.compact ? "text-4xl" : "text-6xl"}`}>
           {p.bpm}
@@ -447,7 +637,6 @@ function MetronomeBody(p: BodyProps) {
         <p className="text-[11px] uppercase tracking-wider text-muted-foreground">BPM</p>
       </div>
 
-      {/* BPM controls */}
       <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
         <Button size="sm" variant="secondary" className="h-9 w-12" onClick={() => p.nudge(-5)}>-5</Button>
         <Button size="sm" variant="secondary" className="h-9 w-12" onClick={() => p.nudge(-1)}>-1</Button>
@@ -467,7 +656,6 @@ function MetronomeBody(p: BodyProps) {
         <Button size="sm" variant="secondary" className="h-9 w-12" onClick={() => p.nudge(5)}>+5</Button>
       </div>
 
-      {/* BPM slider */}
       <input
         type="range"
         min={MIN_BPM}
@@ -476,7 +664,6 @@ function MetronomeBody(p: BodyProps) {
         onChange={(e) => {
           const v = clampBpm(Number(e.target.value));
           p.setBpmInput(String(v));
-          // applyBpm via commit — but we want live, so emulate nudge to absolute
           p.nudge(v - p.bpm);
         }}
         className="w-full accent-[var(--color-primary)]"
@@ -571,6 +758,21 @@ function MetronomeBody(p: BodyProps) {
         </div>
       </div>
 
+      {/* Sound selector */}
+      <div className="mt-4">
+        <p className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Sound</p>
+        <select
+          value={p.sound}
+          onChange={(e) => p.setSound(e.target.value as SoundKind)}
+          className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+          aria-label="Click sound"
+        >
+          {(Object.keys(SOUND_LABEL) as SoundKind[]).map((s) => (
+            <option key={s} value={s}>{SOUND_LABEL[s]}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Volume */}
       <div className="mt-4">
         <div className="mb-1 flex items-center justify-between">
@@ -586,6 +788,74 @@ function MetronomeBody(p: BodyProps) {
           onChange={(e) => p.setVolume(Number(e.target.value))}
           className="w-full accent-[var(--color-primary)]"
         />
+      </div>
+
+      {/* Gap trainer */}
+      <div className="mt-4 rounded-lg border border-border p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Gap trainer</p>
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={p.gapOn}
+              onChange={(e) => p.setGapOn(e.target.checked)}
+              className="accent-[var(--color-primary)]"
+            />
+            {p.gapOn ? "On" : "Off"}
+          </label>
+        </div>
+        {p.gapOn && (
+          <>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <label className="text-xs text-muted-foreground">Bars on</label>
+              <input
+                type="number"
+                min={1}
+                max={16}
+                value={p.barsOn}
+                onChange={(e) => p.setBarsOn(Number(e.target.value) || 1)}
+                className="h-9 w-16 rounded-md border border-border bg-background text-center font-mono"
+                aria-label="Bars on"
+              />
+              <label className="text-xs text-muted-foreground">Bars off</label>
+              <input
+                type="number"
+                min={1}
+                max={16}
+                value={p.barsOff}
+                onChange={(e) => p.setBarsOff(Number(e.target.value) || 1)}
+                className="h-9 w-16 rounded-md border border-border bg-background text-center font-mono"
+                aria-label="Bars off"
+              />
+            </div>
+            <div className="mb-2 flex flex-wrap gap-1">
+              {GAP_PRESETS.map((g) => (
+                <button
+                  key={g.name}
+                  onClick={() => p.onGapPreset(g.on, g.off)}
+                  className={`rounded-md border px-2 py-1 text-xs ${
+                    p.barsOn === g.on && p.barsOff === g.off
+                      ? "border-primary text-primary"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+            {p.running && phaseLabel && (
+              <div
+                className={`rounded-md px-2 py-1.5 text-xs font-medium ${
+                  isAudible
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {phaseLabel}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Presets */}
@@ -604,7 +874,6 @@ function MetronomeBody(p: BodyProps) {
         </div>
       </div>
 
-      {/* Transport */}
       <div className="mt-4 flex gap-2">
         <Button onClick={p.toggle} className={big ? "h-14 flex-1 text-base" : "h-11 flex-1"}>
           {p.running ? <><Square size={14} className="mr-2" /> Stop</> : <><Play size={14} className="mr-2" /> Start</>}
