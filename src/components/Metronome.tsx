@@ -338,7 +338,7 @@ export function Metronome({
   }, [subdivision, running]);
 
   // ---- Body (shared between compact, default, and fullscreen) ----
-  const body = useMemo(() => (
+  const body = (
     <MetronomeBody
       compact={compact}
       fullscreen={fullscreen}
@@ -366,8 +366,7 @@ export function Metronome({
       onPreset={applyPreset}
       onFullscreen={() => setFullscreen((f) => !f)}
     />
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [compact, fullscreen, bpm, bpmInput, num, den, beats, currentBeat, running, subdivision, muted, volume]);
+  );
 
   if (fullscreen && typeof document !== "undefined") {
     return createPortal(
