@@ -535,6 +535,7 @@ function ActiveSession() {
             </div>
           )}
         </div>
+        </ToolSessionContext.Provider>
       </div>
     </div>
   );
