@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useToolUsageLogger } from "@/lib/tool-usage";
 import { Button } from "@/components/ui/button";
 import {
   Play,
