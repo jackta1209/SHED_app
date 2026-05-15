@@ -29,7 +29,7 @@ import { Metronome } from "@/components/Metronome";
 import { SlowDowner } from "@/components/SlowDowner";
 import { SheetMusicReader } from "@/components/SheetMusicReader";
 import { AssistantChat, SESSION_QUICK_ACTIONS } from "@/components/AssistantChat";
-import { ToolSessionContext } from "@/lib/tool-usage";
+import { ToolSessionContext, finalizeOpenToolUsage } from "@/lib/tool-usage";
 
 export const Route = createFileRoute("/session/$id")({
   component: ActiveSession,
@@ -293,6 +293,9 @@ function ActiveSession() {
     } catch {
       /* ignore */
     }
+    // Give tool unmount cleanups a tick to run, then close any orphans.
+    await new Promise((r) => setTimeout(r, 50));
+    await finalizeOpenToolUsage(user.id, session.id);
     navigate({ to: "/session/$id/reflect", params: { id: session.id } });
   }
 
