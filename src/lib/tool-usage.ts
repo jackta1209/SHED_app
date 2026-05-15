@@ -76,7 +76,7 @@ export function useToolUsageLogger(tool: ToolName) {
           .update({
             closed_at: new Date().toISOString(),
             total_seconds: total,
-            usage_data: dataRef.current,
+            usage_data: dataRef.current as never,
           })
           .eq("id", id);
       } catch {
