@@ -118,7 +118,14 @@ export function AssistantChat({
     try {
       const { data, error: invokeErr } = await supabase.functions.invoke(
         "ai-practice-assistant",
-        { body: { message: text, action, session_context: sessionContext } },
+        {
+          body: {
+            message: text,
+            action,
+            include_context: useContext,
+            session_context: useContext ? sessionContext : undefined,
+          },
+        },
       );
       if (invokeErr) throw new Error(invokeErr.message);
       const reply: string | undefined = data?.reply;
