@@ -315,11 +315,7 @@ Deno.serve(async (req) => {
 
     return json(200, {
       reply,
-      meta: {
-        sessions_used: sessions.length,
-        journal_used: journal.length,
-        repertoire_used: (repRes.data ?? []).length,
-      },
+      meta: { context_enabled: includeContext },
     });
   } catch (e) {
     console.error("ai-practice-assistant fatal", e);
