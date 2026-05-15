@@ -125,3 +125,70 @@ export function useToolUsageLogger(tool: ToolName) {
 
   return { update, track, increment };
 }
+
+/**
+ * Safety net: close any still-open practice_tool_usage rows for a session.
+ * Sets closed_at = now() and computes total_seconds from opened_at when missing.
+ * Swallows all errors — never blocks the caller.
+ */
+export async function finalizeOpenToolUsage(
+  userId: string,
+  sessionId: string,
+): Promise<void> {
+  try {
+    const { data, error } = await supabase
+      .from("practice_tool_usage")
+      .select("id, opened_at, total_seconds")
+      .eq("user_id", userId)
+      .eq("session_id", sessionId)
+      .is("closed_at", null);
+    if (error || !data) return;
+    const now = Date.now();
+    await Promise.all(
+      data.map((row) => {
+        const openedMs = row.opened_at ? new Date(row.opened_at).getTime() : now;
+        const total =
+          row.total_seconds && row.total_seconds > 0
+            ? row.total_seconds
+            : Math.max(0, Math.round((now - openedMs) / 1000));
+        return supabase
+          .from("practice_tool_usage")
+          .update({
+            closed_at: new Date(now).toISOString(),
+            total_seconds: total,
+          })
+          .eq("id", row.id);
+      }),
+    );
+  } catch {
+    /* swallow */
+  }
+}
+
+export interface ToolUsageRow {
+  id: string;
+  tool_name: string;
+  opened_at: string;
+  closed_at: string | null;
+  total_seconds: number;
+  usage_data: Record<string, unknown>;
+}
+
+export async function loadToolUsageForSession(
+  userId: string,
+  sessionId: string,
+): Promise<ToolUsageRow[]> {
+  try {
+    const { data, error } = await supabase
+      .from("practice_tool_usage")
+      .select("id, tool_name, opened_at, closed_at, total_seconds, usage_data")
+      .eq("user_id", userId)
+      .eq("session_id", sessionId)
+      .order("opened_at", { ascending: true });
+    if (error || !data) return [];
+    return data as unknown as ToolUsageRow[];
+  } catch {
+    return [];
+  }
+}
+
