@@ -448,6 +448,7 @@ function ActiveSession() {
           )}
         </div>
 
+        <ToolSessionContext.Provider value={{ sessionId: session.id, userId: user?.id ?? null }}>
         <div className="mt-4">
           <button
             onClick={() => setShowMetronome((s) => !s)}
