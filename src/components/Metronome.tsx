@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Gauge, Maximize2, Minimize2, Play, Square, Volume2, VolumeX, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { useToolUsageLogger } from "@/lib/tool-usage";
 
 /**
  * SHED Metronome — Web Audio scheduled, low-drift.
