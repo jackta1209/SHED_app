@@ -93,6 +93,10 @@ export function AssistantChat({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const usage = useToolUsageLogger("ai_assistant");
+  useEffect(() => {
+    if (sessionContext) usage.update({ session_context_used: true });
+  }, [sessionContext]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
