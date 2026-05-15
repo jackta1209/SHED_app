@@ -34,6 +34,7 @@ interface ReqBody {
   message?: string;
   action?: string;
   session_context?: Record<string, unknown>;
+  include_context?: boolean;
 }
 
 Deno.serve(async (req) => {
