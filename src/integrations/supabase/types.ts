@@ -187,6 +187,45 @@ export type Database = {
         }
         Relationships: []
       }
+      practice_tool_usage: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          id: string
+          opened_at: string
+          session_id: string | null
+          tool_name: string
+          total_seconds: number
+          updated_at: string
+          usage_data: Json
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          opened_at?: string
+          session_id?: string | null
+          tool_name: string
+          total_seconds?: number
+          updated_at?: string
+          usage_data?: Json
+          user_id: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          opened_at?: string
+          session_id?: string | null
+          tool_name?: string
+          total_seconds?: number
+          updated_at?: string
+          usage_data?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
