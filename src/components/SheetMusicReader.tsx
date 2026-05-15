@@ -65,6 +65,12 @@ export function SheetMusicReader() {
   const currentBlobRef = useRef<Blob | null>(null);
   const currentUrlRef = useRef<string | null>(null);
 
+  const usage = useToolUsageLogger("sheet_music_reader");
+  useEffect(() => { if (fileName) usage.update({ file_used: fileName }); }, [fileName]);
+  useEffect(() => { usage.track("page_numbers_viewed", page); }, [page]);
+  useEffect(() => { if (fullscreen) usage.update({ fullscreen_used: true }); }, [fullscreen]);
+  useEffect(() => { if (reading) usage.update({ reading_mode_used: true }); }, [reading]);
+
   // Track stage width so PDF pages render at the right size in both inline
   // and fullscreen modes.
   useEffect(() => {
