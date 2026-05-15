@@ -113,6 +113,7 @@ export function AssistantChat({
       { role: "user", content: action ? action.replace(/_/g, " ") : text },
     ]);
     setInput("");
+    usage.increment("prompt_count");
     try {
       const { data, error: invokeErr } = await supabase.functions.invoke(
         "ai-practice-assistant",
