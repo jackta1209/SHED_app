@@ -293,6 +293,9 @@ function ActiveSession() {
     } catch {
       /* ignore */
     }
+    // Give tool unmount cleanups a tick to run, then close any orphans.
+    await new Promise((r) => setTimeout(r, 50));
+    await finalizeOpenToolUsage(user.id, session.id);
     navigate({ to: "/session/$id/reflect", params: { id: session.id } });
   }
 
