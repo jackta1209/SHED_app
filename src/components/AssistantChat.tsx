@@ -174,6 +174,19 @@ export function AssistantChat({
 
   return (
     <div className={embedded ? "flex flex-col gap-3" : "contents"}>
+      <div className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2 text-xs">
+        <div className="flex flex-col">
+          <span className="font-medium">Use practice context</span>
+          <span className="text-[10px] text-muted-foreground">
+            {useContext
+              ? sessionContext
+                ? "Sharing current session + recent practice."
+                : "Sharing your recent practice history."
+              : "General assistant only — no practice data shared."}
+          </span>
+        </div>
+        <Switch checked={useContext} onCheckedChange={setUseContext} aria-label="Use practice context" />
+      </div>
       {quickActions.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
           {quickActions.map((q) => (
