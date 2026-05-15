@@ -29,6 +29,7 @@ import { Metronome } from "@/components/Metronome";
 import { SlowDowner } from "@/components/SlowDowner";
 import { SheetMusicReader } from "@/components/SheetMusicReader";
 import { AssistantChat, SESSION_QUICK_ACTIONS } from "@/components/AssistantChat";
+import { ToolSessionContext } from "@/lib/tool-usage";
 
 export const Route = createFileRoute("/session/$id")({
   component: ActiveSession,
@@ -447,6 +448,7 @@ function ActiveSession() {
           )}
         </div>
 
+        <ToolSessionContext.Provider value={{ sessionId: session.id, userId: user?.id ?? null }}>
         <div className="mt-4">
           <button
             onClick={() => setShowMetronome((s) => !s)}
@@ -533,6 +535,7 @@ function ActiveSession() {
             </div>
           )}
         </div>
+        </ToolSessionContext.Provider>
       </div>
     </div>
   );

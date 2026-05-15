@@ -25,6 +25,7 @@ import {
   type SavedSheetMeta,
 } from "@/lib/sheet-music-storage";
 import { FullscreenShell, FullscreenButton } from "@/components/FullscreenShell";
+import { useToolUsageLogger } from "@/lib/tool-usage";
 
 // Configure pdf.js worker. Use the bundled pdfjs-dist version (must match the
 // version react-pdf depends on — pinned in package.json) so the API and
@@ -63,6 +64,12 @@ export function SheetMusicReader() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentBlobRef = useRef<Blob | null>(null);
   const currentUrlRef = useRef<string | null>(null);
+
+  const usage = useToolUsageLogger("sheet_music_reader");
+  useEffect(() => { if (fileName) usage.update({ file_used: fileName }); }, [fileName]);
+  useEffect(() => { usage.track("page_numbers_viewed", page); }, [page]);
+  useEffect(() => { if (fullscreen) usage.update({ fullscreen_used: true }); }, [fullscreen]);
+  useEffect(() => { if (reading) usage.update({ reading_mode_used: true }); }, [reading]);
 
   // Track stage width so PDF pages render at the right size in both inline
   // and fullscreen modes.

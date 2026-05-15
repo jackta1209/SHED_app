@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useToolUsageLogger } from "@/lib/tool-usage";
 import { Button } from "@/components/ui/button";
 import {
   Play,
@@ -56,6 +57,14 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
   const [loopB, setLoopB] = useState<number | null>(null);
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [fullscreen, setFullscreen] = useState(false);
+
+  const usage = useToolUsageLogger("slow_downer");
+  useEffect(() => { if (fileName) usage.update({ file_used: fileName }); }, [fileName]);
+  useEffect(() => { usage.track("speed_values_used", speed); }, [speed]);
+  useEffect(() => {
+    if (loopA != null && loopB != null) usage.track("loop_points_used", [loopA, loopB]);
+  }, [loopA, loopB]);
+  useEffect(() => { if (fullscreen) usage.update({ fullscreen_used: true }); }, [fullscreen]);
 
   const mediaRef = mediaType === "video" ? videoRef : audioRef;
 

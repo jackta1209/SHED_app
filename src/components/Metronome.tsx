@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Gauge, Maximize2, Minimize2, Play, Square, Volume2, VolumeX, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { useToolUsageLogger } from "@/lib/tool-usage";
 
 /**
  * SHED Metronome — Web Audio scheduled, low-drift.
@@ -214,6 +215,16 @@ export function Metronome({
   const barsOffRef = useRef(barsOff);
 
   const tapsRef = useRef<number[]>([]);
+
+  // Tool usage logging (only active during a practice session).
+  const usage = useToolUsageLogger("metronome");
+  useEffect(() => { usage.track("bpm_values_used", bpm); }, [bpm]);
+  useEffect(() => { usage.track("time_signatures_used", `${num}/${den}`); }, [num, den]);
+  useEffect(() => { usage.track("subdivisions_used", SUBDIV_LABEL[subdivision]); }, [subdivision]);
+  useEffect(() => { usage.update({ sound_used: sound }); }, [sound]);
+  useEffect(() => { usage.track("beat_patterns_used", beats.join(",")); }, [beats]);
+  useEffect(() => { usage.update({ gap_mode_used: gapOn, bars_on: barsOn, bars_off: barsOff }); }, [gapOn, barsOn, barsOff]);
+
 
   // Visual queue: queue (beat, bar, time) and flush via rAF.
   const visualQueueRef = useRef<{ beat: number; bar: number; time: number }[]>([]);

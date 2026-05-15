@@ -3,6 +3,7 @@ import { Sparkles, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useToolUsageLogger } from "@/lib/tool-usage";
 
 export interface AssistantQuickAction {
   label: string;
@@ -92,6 +93,10 @@ export function AssistantChat({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const usage = useToolUsageLogger("ai_assistant");
+  useEffect(() => {
+    if (sessionContext) usage.update({ session_context_used: true });
+  }, [sessionContext]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -108,6 +113,7 @@ export function AssistantChat({
       { role: "user", content: action ? action.replace(/_/g, " ") : text },
     ]);
     setInput("");
+    usage.increment("prompt_count");
     try {
       const { data, error: invokeErr } = await supabase.functions.invoke(
         "ai-practice-assistant",
