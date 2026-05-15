@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Sparkles, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useToolUsageLogger } from "@/lib/tool-usage";
@@ -93,10 +94,11 @@ export function AssistantChat({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const [useContext, setUseContext] = useState(true);
   const usage = useToolUsageLogger("ai_assistant");
   useEffect(() => {
-    if (sessionContext) usage.update({ session_context_used: true });
-  }, [sessionContext]);
+    if (sessionContext && useContext) usage.update({ session_context_used: true });
+  }, [sessionContext, useContext]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -117,7 +119,14 @@ export function AssistantChat({
     try {
       const { data, error: invokeErr } = await supabase.functions.invoke(
         "ai-practice-assistant",
-        { body: { message: text, action, session_context: sessionContext } },
+        {
+          body: {
+            message: text,
+            action,
+            include_context: useContext,
+            session_context: useContext ? sessionContext : undefined,
+          },
+        },
       );
       if (invokeErr) throw new Error(invokeErr.message);
       const reply: string | undefined = data?.reply;
@@ -166,6 +175,19 @@ export function AssistantChat({
 
   return (
     <div className={embedded ? "flex flex-col gap-3" : "contents"}>
+      <div className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2 text-xs">
+        <div className="flex flex-col">
+          <span className="font-medium">Use practice context</span>
+          <span className="text-[10px] text-muted-foreground">
+            {useContext
+              ? sessionContext
+                ? "Sharing current session + recent practice."
+                : "Sharing your recent practice history."
+              : "General assistant only — no practice data shared."}
+          </span>
+        </div>
+        <Switch checked={useContext} onCheckedChange={setUseContext} aria-label="Use practice context" />
+      </div>
       {quickActions.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
           {quickActions.map((q) => (
