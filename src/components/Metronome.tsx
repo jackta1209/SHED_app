@@ -216,6 +216,16 @@ export function Metronome({
 
   const tapsRef = useRef<number[]>([]);
 
+  // Tool usage logging (only active during a practice session).
+  const usage = useToolUsageLogger("metronome");
+  useEffect(() => { usage.track("bpm_values_used", bpm); }, [bpm]);
+  useEffect(() => { usage.track("time_signatures_used", `${num}/${den}`); }, [num, den]);
+  useEffect(() => { usage.track("subdivisions_used", SUBDIV_LABEL[subdivision]); }, [subdivision]);
+  useEffect(() => { usage.update({ sound_used: sound }); }, [sound]);
+  useEffect(() => { usage.track("beat_patterns_used", beats.join(",")); }, [beats]);
+  useEffect(() => { usage.update({ gap_mode_used: gapOn, bars_on: barsOn, bars_off: barsOff }); }, [gapOn, barsOn, barsOff]);
+
+
   // Visual queue: queue (beat, bar, time) and flush via rAF.
   const visualQueueRef = useRef<{ beat: number; bar: number; time: number }[]>([]);
   const rafRef = useRef<number | null>(null);
