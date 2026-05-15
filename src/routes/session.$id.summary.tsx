@@ -30,6 +30,12 @@ function Summary() {
 
   if (!s) return null;
   const notes = entries.filter((e) => e.entry_type === "quick_note");
+  const reflection = entries.find((e) => e.entry_type === "session_reflection");
+  const startDate = s.start_time ? new Date(s.start_time) : new Date(s.created_at);
+  const endDate = s.end_time ? new Date(s.end_time) : null;
+  const distractions = s.distraction_count ?? 0;
+  const exits = s.exit_attempt_count ?? 0;
+  const showDistractionLine = distractions > 0 || exits > 0;
 
   return (
     <AppLayout hideNav>
@@ -39,23 +45,55 @@ function Summary() {
       </div>
       <PageHeader title="Nice work." subtitle={s.session_goal ?? undefined} />
 
+      <p className="-mt-2 mb-5 text-xs text-muted-foreground">
+        {startDate.toLocaleDateString(undefined, {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        })}
+        {" · "}
+        {startDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+        {endDate
+          ? ` – ${endDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
+          : ""}
+      </p>
+
       <div className="mb-6 grid grid-cols-2 gap-3">
         <Stat label="Duration" value={`${s.practice_minutes}m`} />
         <Stat label="Category" value={s.practice_category ?? "—"} />
         <Stat label="Focus rating" value={`${s.focus_rating ?? "—"}/5`} />
         <Stat label="Progress" value={`${s.progress_rating ?? "—"}/5`} />
-        <Stat label="Distractions" value={`${s.distraction_count}`} />
-        <Stat label="Exit attempts" value={`${s.exit_attempt_count}`} />
         <Stat label="Focus score" value={s.focus_score != null ? `${s.focus_score}` : "—"} />
         <Stat label="Notes saved" value={`${notes.length}`} />
       </div>
 
+      <div className="mb-6 rounded-xl border border-border bg-card p-3">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          Focus
+        </p>
+        {showDistractionLine ? (
+          <p className="mt-1 text-sm">
+            {distractions} distraction{distractions === 1 ? "" : "s"} ·{" "}
+            {exits} exit attempt{exits === 1 ? "" : "s"}
+          </p>
+        ) : (
+          <p className="mt-1 text-sm text-muted-foreground">No distractions recorded.</p>
+        )}
+      </div>
+
+      {user && <ToolUsageSummary userId={user.id} sessionId={s.id} />}
+
+      {s.what_practiced && <Block label="Practiced">{s.what_practiced}</Block>}
       {s.what_improved && <Block label="Improved">{s.what_improved}</Block>}
       {s.what_was_difficult && <Block label="Difficult">{s.what_was_difficult}</Block>}
       {s.next_step && (
         <Block label="Next focus" highlight>
           {s.next_step}
         </Block>
+      )}
+      {s.final_notes && <Block label="Final notes">{s.final_notes}</Block>}
+      {!s.what_practiced && !s.what_improved && !s.what_was_difficult && !s.next_step && !s.final_notes && reflection?.content && (
+        <Block label="Reflection">{reflection.content}</Block>
       )}
 
       {notes.length > 0 && (
