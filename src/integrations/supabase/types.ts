@@ -362,6 +362,7 @@ export type Database = {
           default_instrument: string | null
           default_practice_duration: number | null
           id: string
+          inactivity_timeout_minutes: number | null
           next_focus: string | null
           preferred_categories: string[] | null
           session_alerts_enabled: boolean | null
@@ -376,6 +377,7 @@ export type Database = {
           default_instrument?: string | null
           default_practice_duration?: number | null
           id?: string
+          inactivity_timeout_minutes?: number | null
           next_focus?: string | null
           preferred_categories?: string[] | null
           session_alerts_enabled?: boolean | null
@@ -390,6 +392,7 @@ export type Database = {
           default_instrument?: string | null
           default_practice_duration?: number | null
           id?: string
+          inactivity_timeout_minutes?: number | null
           next_focus?: string | null
           preferred_categories?: string[] | null
           session_alerts_enabled?: boolean | null

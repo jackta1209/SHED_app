@@ -1,0 +1,1 @@
+ALTER TABLE public.user_settings ADD COLUMN IF NOT EXISTS inactivity_timeout_minutes integer DEFAULT 15;
