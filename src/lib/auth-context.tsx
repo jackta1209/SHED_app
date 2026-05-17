@@ -21,28 +21,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [prefs, setPrefs] = useState<UserSettings | null>(null);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) {
-        // defer DB call to avoid auth deadlock
-        setTimeout(() => {
-          settingsStore.get(s.user.id).then(setPrefs);
-        }, 0);
-      } else {
+    let mounted = true;
+    let subscription: { unsubscribe: () => void } | undefined;
+
+    const loadPrefs = (userId: string) => {
+      setPrefsLoaded(false);
+      settingsStore.get(userId).then((next) => {
+        if (!mounted) return;
+        setPrefs(next);
+        setPrefsLoaded(true);
+      }).catch(() => {
+        if (!mounted) return;
         setPrefs(null);
-      }
-    });
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
+        setPrefsLoaded(true);
+      });
+    };
+
+    supabase.auth.getSession().then(({ data: { session: s }, error }) => {
+      if (!mounted) return;
+      if (error) console.error("Error restoring auth session:", error);
       setSession(s);
       setUser(s?.user ?? null);
-      if (s?.user) settingsStore.get(s.user.id).then(setPrefs);
+      if (s?.user) loadPrefs(s.user.id);
+      else {
+        setPrefs(null);
+        setPrefsLoaded(true);
+      }
       setLoading(false);
+
+      const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
+        if (nextSession?.user) {
+          // defer DB call to avoid auth deadlock
+          setTimeout(() => loadPrefs(nextSession.user.id), 0);
+        } else {
+          setPrefs(null);
+          setPrefsLoaded(true);
+        }
+      });
+      subscription = sub.subscription;
     });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   // apply theme
@@ -94,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ? DEFAULT_INACTIVITY_MINUTES
       : prefs.inactivity_timeout_minutes;
   useInactivityLogout({
-    active: !!user,
+    active: !!user && !loading && prefsLoaded,
     timeoutMinutes: user ? timeoutMinutes : null,
     onTimeout: () => {
       clearLastActive();
