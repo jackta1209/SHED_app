@@ -113,8 +113,9 @@ export function useInactivityLogout(opts: {
     window.addEventListener("popstate", bump, { passive: true });
     window.addEventListener("hashchange", bump, { passive: true });
 
-    // Initial check on mount (covers refresh/sleep-wake case)
-    check();
+    // Initial check on mount (covers refresh/sleep-wake case). If the timeout
+    // has not elapsed, treat the completed restore/page load as activity.
+    if (!check()) bump();
     const interval = window.setInterval(check, CHECK_INTERVAL_MS);
 
     return () => {
