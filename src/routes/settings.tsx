@@ -1,8 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { AppLayout, PageHeader, Section } from "@/components/AppLayout";
 import { AuthGate } from "@/components/AuthGate";
 import { useAuth } from "@/lib/auth-context";
-import { ChevronRight, User, Bell, Palette, LogOut, Map, BookOpen, ShieldAlert } from "lucide-react";
+import { settingsStore } from "@/lib/store";
+import { ChevronRight, User, Bell, Palette, LogOut, Map, BookOpen, ShieldAlert, Clock } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings")({
   component: () => <AuthGate><SettingsPage /></AuthGate>,
@@ -24,7 +27,25 @@ const ROADMAP = [
 ];
 
 function SettingsPage() {
-  const { user, signOut, prefs } = useAuth();
+  const { user, signOut, prefs, refreshPrefs } = useAuth();
+  const currentTimeout =
+    prefs?.inactivity_timeout_minutes === undefined ? 15 : prefs.inactivity_timeout_minutes;
+  const [saving, setSaving] = useState(false);
+
+  async function changeTimeout(value: number | null) {
+    if (!user) return;
+    setSaving(true);
+    const prev = currentTimeout;
+    const res = await settingsStore.save(user.id, { inactivity_timeout_minutes: value });
+    if (!res) {
+      toast.error("Couldn't save. Keeping previous value.");
+      setSaving(false);
+      return;
+    }
+    await refreshPrefs();
+    setSaving(false);
+    void prev;
+  }
 
   return (
     <AppLayout>
@@ -37,6 +58,44 @@ function SettingsPage() {
         <Row to="/history" Icon={BookOpen} label="Practice history" hint="All completed sessions" />
         <Row to="/account" Icon={ShieldAlert} label="Account" hint="Delete account" />
       </ul>
+
+      <Section title="Session">
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-start gap-2 text-muted-foreground">
+            <Clock size={14} className="mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Auto logout after inactivity</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Refreshing the page or putting your device to sleep will not log you out
+                unless your inactivity limit has passed.
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {([
+              { v: 5, label: "5 min" },
+              { v: 10, label: "10 min" },
+              { v: 15, label: "15 min" },
+              { v: 20, label: "20 min" },
+              { v: 30, label: "30 min" },
+              { v: 60, label: "1 hour" },
+              { v: null as number | null, label: "Manual only" },
+            ]).map((opt) => {
+              const on = currentTimeout === opt.v;
+              return (
+                <button
+                  key={String(opt.v)}
+                  disabled={saving}
+                  onClick={() => changeTimeout(opt.v)}
+                  className={`rounded-lg border px-3 py-2 text-xs ${on ? "border-primary bg-primary/10 text-primary" : "border-border bg-surface text-muted-foreground"} disabled:opacity-50`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </Section>
 
       <Section title="Roadmap">
         <div className="rounded-2xl border border-border bg-card p-4">
