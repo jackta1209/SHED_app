@@ -107,6 +107,7 @@ export interface UserSettings {
   default_practice_duration: number;
   preferred_categories: string[];
   next_focus: string | null;
+  inactivity_timeout_minutes: number | null;
   created_at: string;
   updated_at: string;
 }
