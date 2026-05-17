@@ -1,8 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { AppLayout, PageHeader, Section } from "@/components/AppLayout";
 import { AuthGate } from "@/components/AuthGate";
 import { useAuth } from "@/lib/auth-context";
-import { ChevronRight, User, Bell, Palette, LogOut, Map, BookOpen, ShieldAlert } from "lucide-react";
+import { settingsStore } from "@/lib/store";
+import { ChevronRight, User, Bell, Palette, LogOut, Map, BookOpen, ShieldAlert, Clock } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings")({
   component: () => <AuthGate><SettingsPage /></AuthGate>,
