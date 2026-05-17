@@ -57,10 +57,12 @@ export function useInactivityLogout(opts: {
   const { active, timeoutMinutes, onTimeout } = opts;
   const onTimeoutRef = useRef(onTimeout);
   onTimeoutRef.current = onTimeout;
+  const timedOutRef = useRef(false);
 
   useEffect(() => {
     if (!active) return;
     if (typeof window === "undefined") return;
+    timedOutRef.current = false;
 
     // Seed initial timestamp if missing.
     if (!localStorage.getItem(LS_KEY)) writeLastActive();
@@ -74,12 +76,15 @@ export function useInactivityLogout(opts: {
     };
 
     const check = () => {
-      if (timeoutMinutes == null) return; // manual mode
+      if (timeoutMinutes == null || timedOutRef.current) return false; // manual mode
       const last = readLastActive();
       const elapsedMs = Date.now() - last;
       if (elapsedMs >= timeoutMinutes * 60_000) {
+        timedOutRef.current = true;
         onTimeoutRef.current();
+        return true;
       }
+      return false;
     };
 
     const events: (keyof WindowEventMap)[] = [
@@ -91,16 +96,22 @@ export function useInactivityLogout(opts: {
       "touchstart",
       "touchmove",
       "wheel",
-      "focus",
     ];
     for (const e of events) {
       window.addEventListener(e, bump, { passive: true });
     }
 
+    const checkThenBump = () => {
+      if (!check()) bump();
+    };
+
     const onVisibility = () => {
-      if (document.visibilityState === "visible") check();
+      if (document.visibilityState === "visible") checkThenBump();
     };
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", checkThenBump, { passive: true });
+    window.addEventListener("popstate", bump, { passive: true });
+    window.addEventListener("hashchange", bump, { passive: true });
 
     // Initial check on mount (covers refresh/sleep-wake case)
     check();
@@ -109,6 +120,9 @@ export function useInactivityLogout(opts: {
     return () => {
       for (const e of events) window.removeEventListener(e, bump);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", checkThenBump);
+      window.removeEventListener("popstate", bump);
+      window.removeEventListener("hashchange", bump);
       window.clearInterval(interval);
     };
   }, [active, timeoutMinutes]);
