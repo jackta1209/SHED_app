@@ -80,12 +80,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: error?.message ?? null };
     },
     signOut: async () => {
+      clearLastActive();
       await supabase.auth.signOut();
     },
     refreshPrefs: async () => {
       if (user) setPrefs(await settingsStore.get(user.id));
     },
   };
+
+  // Inactivity auto-logout. Disabled when no user, or when preference is null ("manual only").
+  const timeoutMinutes =
+    prefs?.inactivity_timeout_minutes === undefined
+      ? DEFAULT_INACTIVITY_MINUTES
+      : prefs.inactivity_timeout_minutes;
+  useInactivityLogout({
+    active: !!user,
+    timeoutMinutes: user ? timeoutMinutes : null,
+    onTimeout: () => {
+      clearLastActive();
+      supabase.auth.signOut().catch(() => {});
+    },
+  });
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }
