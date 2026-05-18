@@ -24,7 +24,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify the user from their JWT.
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -37,13 +36,15 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    // Admin client for cleanup + auth user deletion.
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // Delete dependent rows first. Idempotent — missing rows are fine.
+    // Delete all user-owned rows. If ANY required table delete fails, surface
+    // a user-facing error rather than silently reporting success.
     const tables = [
+      "ai_usage_events",
+      "practice_tool_usage",
       "session_exit_attempts",
       "journal_entries",
       "practice_sessions",
@@ -52,9 +53,21 @@ Deno.serve(async (req) => {
       "user_settings",
       "profiles",
     ];
+    const failures: string[] = [];
     for (const t of tables) {
       const { error } = await admin.from(t).delete().eq("user_id", userId);
-      if (error) console.error(`Delete from ${t} failed:`, error.message);
+      if (error) {
+        console.error(`Delete from ${t} failed:`, error.message);
+        failures.push(t);
+      }
+    }
+    if (failures.length > 0) {
+      return new Response(
+        JSON.stringify({
+          error: `Failed to clean up: ${failures.join(", ")}. Account not deleted.`,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const { error: delErr } = await admin.auth.admin.deleteUser(userId);
