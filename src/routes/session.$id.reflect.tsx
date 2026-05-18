@@ -12,6 +12,7 @@ import {
   type JournalEntry,
 } from "@/lib/store";
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/BackButton";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -101,6 +102,7 @@ function Reflect() {
 
   return (
     <AppLayout hideNav>
+      <BackButton fallback="/dashboard" label="Dashboard" />
       <PageHeader
         eyebrow="Reflect"
         title="What did you learn?"

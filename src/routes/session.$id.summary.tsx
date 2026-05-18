@@ -5,6 +5,7 @@ import { AuthGate } from "@/components/AuthGate";
 import { useAuth } from "@/lib/auth-context";
 import { sessionStore, journalStore, type PracticeSession, type JournalEntry } from "@/lib/store";
 import { ToolUsageSummary } from "@/components/ToolUsageSummary";
+import { BackButton } from "@/components/BackButton";
 import { CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/session/$id/summary")({
@@ -39,6 +40,7 @@ function Summary() {
 
   return (
     <AppLayout hideNav>
+      <BackButton fallback="/dashboard" label="Dashboard" />
       <div className="mb-6 flex items-center gap-2 text-primary">
         <CheckCircle2 size={20} />
         <p className="text-[11px] uppercase tracking-[0.24em]">Session complete</p>
