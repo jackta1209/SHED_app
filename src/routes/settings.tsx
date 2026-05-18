@@ -117,6 +117,22 @@ function SettingsPage() {
         </div>
       </Section>
 
+      <Section title="Beta">
+        <a
+          href="mailto:shedapp.feedback@gmail.com?subject=SHED%20beta%20feedback"
+          className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4"
+        >
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-foreground">
+            <MessageSquare size={16} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium">Send beta feedback</p>
+            <p className="text-xs text-muted-foreground">shedapp.feedback@gmail.com</p>
+          </div>
+          <ChevronRight size={16} className="text-muted-foreground" />
+        </a>
+      </Section>
+
       <button onClick={signOut} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card py-3 text-sm text-muted-foreground hover:text-foreground">
         <LogOut size={14} /> Sign out
       </button>
