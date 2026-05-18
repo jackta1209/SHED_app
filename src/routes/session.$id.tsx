@@ -31,8 +31,14 @@ import { SheetMusicReader } from "@/components/SheetMusicReader";
 import { AssistantChat, SESSION_QUICK_ACTIONS } from "@/components/AssistantChat";
 import { ToolSessionContext, finalizeOpenToolUsage } from "@/lib/tool-usage";
 
+import { AuthGate } from "@/components/AuthGate";
+
 export const Route = createFileRoute("/session/$id")({
-  component: ActiveSession,
+  component: () => (
+    <AuthGate>
+      <ActiveSession />
+    </AuthGate>
+  ),
   head: () => ({ meta: [{ title: "Session — SHED" }] }),
 });
 
