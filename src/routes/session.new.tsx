@@ -50,6 +50,16 @@ function NewSession() {
     e.preventDefault();
     if (!user) return;
     setBusy(true);
+
+    // Prevent duplicate active sessions (e.g. second tab, double-tap).
+    const existing = await sessionStore.findActive(user.id);
+    if (existing) {
+      setBusy(false);
+      toast.message("You already have an active session. Resuming it instead.");
+      navigate({ to: "/session/$id", params: { id: existing.id } });
+      return;
+    }
+
     const created = await sessionStore.create({
       user_id: user.id,
       planned_duration_minutes: duration,

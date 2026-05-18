@@ -32,9 +32,9 @@ function LoginPage() {
 
     if (mode === "reset") {
       // Note: configure the Supabase redirect URL allowlist to include
-      // ${window.location.origin}/login in Cloud → Users → Auth Settings.
+      // ${window.location.origin}/reset-password in Cloud → Users → Auth Settings.
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/login`,
+        redirectTo: `${window.location.origin}/reset-password`,
       });
       setBusy(false);
       if (error) {

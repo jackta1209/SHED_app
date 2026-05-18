@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RoutineRouteImport } from './routes/routine'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JournalRouteImport } from './routes/journal'
@@ -40,6 +41,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const RoutineRoute = RoutineRouteImport.update({
   id: '/routine',
   path: '/routine',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RemindersRoute = RemindersRouteImport.update({
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/reminders': typeof RemindersRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/routine': typeof RoutineRoute
   '/settings': typeof SettingsRoute
   '/tools': typeof ToolsRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/reminders': typeof RemindersRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/routine': typeof RoutineRoute
   '/settings': typeof SettingsRoute
   '/tools': typeof ToolsRoute
@@ -162,6 +170,7 @@ export interface FileRoutesById {
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/reminders': typeof RemindersRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/routine': typeof RoutineRoute
   '/settings': typeof SettingsRoute
   '/tools': typeof ToolsRoute
@@ -183,6 +192,7 @@ export interface FileRouteTypes {
     | '/journal'
     | '/login'
     | '/reminders'
+    | '/reset-password'
     | '/routine'
     | '/settings'
     | '/tools'
@@ -202,6 +212,7 @@ export interface FileRouteTypes {
     | '/journal'
     | '/login'
     | '/reminders'
+    | '/reset-password'
     | '/routine'
     | '/settings'
     | '/tools'
@@ -221,6 +232,7 @@ export interface FileRouteTypes {
     | '/journal'
     | '/login'
     | '/reminders'
+    | '/reset-password'
     | '/routine'
     | '/settings'
     | '/tools'
@@ -241,6 +253,7 @@ export interface RootRouteChildren {
   JournalRoute: typeof JournalRoute
   LoginRoute: typeof LoginRoute
   RemindersRoute: typeof RemindersRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   RoutineRoute: typeof RoutineRoute
   SettingsRoute: typeof SettingsRoute
   ToolsRoute: typeof ToolsRoute
@@ -270,6 +283,13 @@ declare module '@tanstack/react-router' {
       path: '/routine'
       fullPath: '/routine'
       preLoaderRoute: typeof RoutineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reminders': {
@@ -397,6 +417,7 @@ const rootRouteChildren: RootRouteChildren = {
   JournalRoute: JournalRoute,
   LoginRoute: LoginRoute,
   RemindersRoute: RemindersRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   RoutineRoute: RoutineRoute,
   SettingsRoute: SettingsRoute,
   ToolsRoute: ToolsRoute,
@@ -407,12 +428,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

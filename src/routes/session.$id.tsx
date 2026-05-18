@@ -280,8 +280,9 @@ function ActiveSession() {
       Math.min(100, Math.round(100 - (distractions * 10 + exitAttempts * 5))),
     );
 
+    let updated = null as Awaited<ReturnType<typeof sessionStore.update>>;
     try {
-      await sessionStore.update(session.id, {
+      updated = await sessionStore.update(session.id, {
         status: "completed",
         completion_method: reason,
         end_time: now,
@@ -293,7 +294,18 @@ function ActiveSession() {
       });
     } catch (err) {
       console.error("Failed saving session", err);
+      updated = null;
     }
+
+    if (!updated) {
+      // Save failed. Do NOT clear local state or navigate — keep the session
+      // recoverable so the user can retry finishing it.
+      finishedRef.current = false;
+      setRunning(reason === "manual_finish");
+      toast.error("Couldn't save your session. Check your connection and tap Finish again.");
+      return;
+    }
+
     try {
       activeSessionStore.clear(user.id);
     } catch {
@@ -324,6 +336,8 @@ function ActiveSession() {
         distraction_count: distractions,
         exit_attempt_count: exitAttempts,
       });
+      // Close any open tool usage rows so they aren't left orphan.
+      await finalizeOpenToolUsage(user.id, session.id);
       activeSessionStore.clear(user.id);
     }
     navigate({ to: "/dashboard" });
