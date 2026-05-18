@@ -4,7 +4,7 @@ import { AppLayout, PageHeader, Section } from "@/components/AppLayout";
 import { AuthGate } from "@/components/AuthGate";
 import { useAuth } from "@/lib/auth-context";
 import { settingsStore } from "@/lib/store";
-import { ChevronRight, User, Bell, Palette, LogOut, Map, BookOpen, ShieldAlert, Clock } from "lucide-react";
+import { ChevronRight, User, Bell, Palette, LogOut, Map, BookOpen, ShieldAlert, Clock, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings")({
