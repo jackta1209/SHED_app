@@ -5,6 +5,7 @@ import { AuthGate } from "@/components/AuthGate";
 import { useAuth } from "@/lib/auth-context";
 import { sessionStore, journalStore, type PracticeSession, type JournalEntry } from "@/lib/store";
 import { ToolUsageSummary } from "@/components/ToolUsageSummary";
+import { BackButton } from "@/components/BackButton";
 import { CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/session/$id/summary")({
