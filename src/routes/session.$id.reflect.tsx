@@ -46,58 +46,92 @@ function Reflect() {
 
   useEffect(() => {
     if (!user) return;
-    sessionStore.get(user.id, id).then(setS);
+    sessionStore.get(user.id, id).then((existing) => {
+      setS(existing);
+      if (existing) {
+        // Prefill from any existing saved values so the form remains editable.
+        setPracticed(existing.what_practiced ?? "");
+        setImproved(existing.what_improved ?? "");
+        setDifficult(existing.what_was_difficult ?? "");
+        setNext(existing.next_step ?? "");
+        setFinal(existing.final_notes ?? "");
+        if (typeof existing.focus_rating === "number") setFocus(existing.focus_rating);
+        if (typeof existing.progress_rating === "number") setProgress(existing.progress_rating);
+      }
+    });
     journalStore.forSession(user.id, id).then(setNotes);
   }, [id, user]);
 
-  if (!s) return null;
+  if (!user) {
+    return (
+      <AppLayout hideNav>
+        <p className="p-6 text-sm text-muted-foreground">Loading…</p>
+      </AppLayout>
+    );
+  }
+  if (!s) {
+    return (
+      <AppLayout hideNav>
+        <BackButton fallback="/dashboard" label="Dashboard" />
+        <p className="p-6 text-sm text-muted-foreground">Loading session…</p>
+      </AppLayout>
+    );
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (!s || !user) return;
+    if (!s || !user || busy) return;
     setBusy(true);
 
-    await sessionStore.update(s.id, {
-      status: "completed",
-      what_practiced: practiced,
-      what_improved: improved,
-      what_was_difficult: difficult,
-      next_step: next,
-      focus_rating: focus,
-      progress_rating: progress,
-      final_notes: final,
-    });
+    try {
+      // Reflection-only fields. Do NOT overwrite completion_method, end_time,
+      // elapsed_seconds, practice_minutes, start_time — those belong to
+      // completeSession.
+      await sessionStore.update(s.id, {
+        what_practiced: practiced,
+        what_improved: improved,
+        what_was_difficult: difficult,
+        next_step: next,
+        focus_rating: focus,
+        progress_rating: progress,
+        final_notes: final,
+      });
 
-    const profile = await profileStore.get(user.id);
-    await journalStore.add({
-      user_id: user.id,
-      session_id: s.id,
-      entry_type: "session_reflection",
-      title: `Reflection — ${s.practice_category ?? "Practice"}`,
-      content: [
-        practiced && `Practiced: ${practiced}`,
-        improved && `Improved: ${improved}`,
-        difficult && `Difficult: ${difficult}`,
-        next && `Next: ${next}`,
-        final,
-      ]
-        .filter(Boolean)
-        .join("\n\n"),
-      category: s.practice_category,
-      instrument: profile?.instrument ?? null,
-      next_step: next || null,
-      tempo: tempoEnd ? Number(tempoEnd) : null,
-      duration_minutes: s.practice_minutes,
-      session_elapsed_seconds: null,
-    });
+      const profile = await profileStore.get(user.id);
+      await journalStore.upsertSessionReflection({
+        user_id: user.id,
+        session_id: s.id,
+        entry_type: "session_reflection",
+        title: `Reflection — ${s.practice_category ?? "Practice"}`,
+        content: [
+          practiced && `Practiced: ${practiced}`,
+          improved && `Improved: ${improved}`,
+          difficult && `Difficult: ${difficult}`,
+          next && `Next: ${next}`,
+          final,
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+        category: s.practice_category,
+        instrument: profile?.instrument ?? null,
+        next_step: next || null,
+        tempo: tempoEnd ? Number(tempoEnd) : null,
+        duration_minutes: s.practice_minutes,
+        session_elapsed_seconds: null,
+      });
 
-    if (next.trim()) {
-      await settingsStore.save(user.id, { next_focus: next.trim() });
+      if (next.trim()) {
+        await settingsStore.save(user.id, { next_focus: next.trim() });
+      }
+
+      toast.success("Reflection saved.");
+      navigate({ to: "/session/$id/summary", params: { id: s.id } });
+    } catch (err) {
+      console.error("reflection save failed", err);
+      toast.error("Couldn't save reflection. Please try again.");
+    } finally {
+      setBusy(false);
     }
-
-    setBusy(false);
-    toast.success("Session logged.");
-    navigate({ to: "/session/$id/summary", params: { id: s.id } });
   }
 
   return (
