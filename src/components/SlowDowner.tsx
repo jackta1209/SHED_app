@@ -247,7 +247,7 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
             />
           </label>
           <p className="mt-3 text-[10px] text-muted-foreground">
-            Local files are not uploaded. Re-import after closing or refreshing the app.
+            Imported audio/video files are temporary and will be lost after refresh or closing the tab.
           </p>
         </div>
       )}

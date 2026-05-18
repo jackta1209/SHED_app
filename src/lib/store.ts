@@ -322,6 +322,56 @@ export const journalStore = {
     }
     return data as JournalEntry;
   },
+  /**
+   * Idempotent upsert for a session's reflection entry. If a
+   * session_reflection row already exists for (user_id, session_id), it is
+   * updated; otherwise a new one is inserted. Prevents duplicate reflection
+   * entries on double-click, back/forward navigation, or resubmit.
+   */
+  async upsertSessionReflection(
+    input: Omit<JournalEntry, "id" | "created_at" | "updated_at">,
+  ): Promise<JournalEntry | null> {
+    const { user_id, session_id } = input;
+    if (!session_id) {
+      // Fall back to insert if there's no session id to dedupe against.
+      return this.add(input);
+    }
+    const { data: existing, error: findErr } = await supabase
+      .from("journal_entries")
+      .select("id")
+      .eq("user_id", user_id)
+      .eq("session_id", session_id)
+      .eq("entry_type", "session_reflection")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (findErr) {
+      console.error("journal.upsertSessionReflection.find", findErr);
+      return null;
+    }
+    if (existing) {
+      const { data, error } = await supabase
+        .from("journal_entries")
+        .update({
+          title: input.title,
+          content: input.content,
+          category: input.category,
+          instrument: input.instrument,
+          next_step: input.next_step,
+          tempo: input.tempo,
+          duration_minutes: input.duration_minutes,
+        })
+        .eq("id", existing.id)
+        .select()
+        .single();
+      if (error) {
+        console.error("journal.upsertSessionReflection.update", error);
+        return null;
+      }
+      return data as JournalEntry;
+    }
+    return this.add(input);
+  },
 };
 
 // ---------- Exit attempts ----------
