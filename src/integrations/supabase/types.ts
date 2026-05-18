@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage_events: {
+        Row: {
+          completion_tokens: number | null
+          created_at: string
+          feature: string
+          id: string
+          model: string | null
+          prompt_tokens: number | null
+          reason: string | null
+          status: string
+          total_tokens: number | null
+          user_id: string
+        }
+        Insert: {
+          completion_tokens?: number | null
+          created_at?: string
+          feature?: string
+          id?: string
+          model?: string | null
+          prompt_tokens?: number | null
+          reason?: string | null
+          status: string
+          total_tokens?: number | null
+          user_id: string
+        }
+        Update: {
+          completion_tokens?: number | null
+          created_at?: string
+          feature?: string
+          id?: string
+          model?: string | null
+          prompt_tokens?: number | null
+          reason?: string | null
+          status?: string
+          total_tokens?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       journal_entries: {
         Row: {
           category: string | null
