@@ -271,6 +271,9 @@ export function SheetMusicReader() {
           <FullscreenButton active={fullscreen} onToggle={() => setFullscreen((v) => !v)} />
         </div>
       </div>
+      <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
+        Saved scores are stored only on this device/browser. They do not sync across devices.
+      </p>
 
       {/* Library */}
       <div className="mt-3">

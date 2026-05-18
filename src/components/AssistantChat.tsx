@@ -188,6 +188,11 @@ export function AssistantChat({
         </div>
         <Switch checked={useContext} onCheckedChange={setUseContext} aria-label="Use practice context" />
       </div>
+      <p className="text-[10px] leading-snug text-muted-foreground">
+        When practice context is on, relevant practice, journal, and tool usage data may be sent to
+        OpenAI to generate your response. AI features use your authenticated SHED data only when
+        practice context is enabled.
+      </p>
       {quickActions.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
           {quickActions.map((q) => (
