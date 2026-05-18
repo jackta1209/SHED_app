@@ -102,6 +102,7 @@ function Reflect() {
 
   return (
     <AppLayout hideNav>
+      <BackButton fallback="/dashboard" label="Dashboard" />
       <PageHeader
         eyebrow="Reflect"
         title="What did you learn?"
