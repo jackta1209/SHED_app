@@ -225,6 +225,21 @@ export const sessionStore = {
     }
     return (data ?? []) as PracticeSession[];
   },
+  async findActive(userId: string): Promise<PracticeSession | null> {
+    const { data, error } = await supabase
+      .from("practice_sessions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.error("sessions.findActive", error);
+      return null;
+    }
+    return data as PracticeSession | null;
+  },
   async get(userId: string, id: string): Promise<PracticeSession | null> {
     const { data, error } = await supabase
       .from("practice_sessions")
