@@ -39,7 +39,7 @@ function Landing() {
           </h1>
           <p className="mt-6 max-w-sm text-base leading-relaxed text-muted-foreground">
             Everything you need for a productive practice session in one focused
-            workspace — built to help you lock in and stop folding in life.
+            workspace — built to help you lock in and stay consistent.
           </p>
         </div>
 
