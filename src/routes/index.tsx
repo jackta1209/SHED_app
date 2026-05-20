@@ -34,22 +34,19 @@ function Landing() {
 
         <div className="mt-20">
           <h1 className="font-serif text-[68px] leading-[0.95] text-foreground">
-            Go to<br />
+            Welcome to<br />
             <span className="italic text-primary">the shed.</span>
           </h1>
           <p className="mt-6 max-w-sm text-base leading-relaxed text-muted-foreground">
-            A focused practice space for serious musicians. One environment for
-            timing, tracking, journaling, and reflection — without the noise of ten other apps.
+            Everything you need for a productive practice session in one focused
+            workspace — built to help you lock in and stop folding.
           </p>
         </div>
 
         <div className="mt-auto space-y-3">
           <div className="rounded-2xl border border-border bg-card/40 p-5">
-            <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-              The loop
-            </p>
-            <p className="mt-2 font-serif text-2xl text-foreground">
-              Plan · Practice · Track · Reflect · Adjust
+            <p className="font-serif text-xl leading-snug text-foreground">
+              “Fold here in the shed, so you don’t get cooked on the bandstand.”
             </p>
           </div>
           <Link
