@@ -401,6 +401,25 @@ export function Metronome({
 
   useEffect(() => { if (stopSignal > 0) stop(); }, [stopSignal, stop]);
 
+  // Resume AudioContext when returning to a backgrounded tab on iOS Safari.
+  // Only resumes if the metronome is supposed to be running; never restarts.
+  const runningRef = useRef(running);
+  useEffect(() => { runningRef.current = running; }, [running]);
+  useEffect(() => {
+    const onVis = () => {
+      if (
+        document.visibilityState === "visible" &&
+        runningRef.current &&
+        ctxRef.current &&
+        ctxRef.current.state === "suspended"
+      ) {
+        ctxRef.current.resume().catch(() => { /* harmless */ });
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
   useEffect(() => {
     return () => {
       if (timerRef.current) window.clearInterval(timerRef.current);
