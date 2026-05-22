@@ -355,42 +355,61 @@ export const journalStore = {
       // Fall back to insert if there's no session id to dedupe against.
       return this.add(input);
     }
-    const { data: existing, error: findErr } = await supabase
+
+    const updateFields = {
+      title: input.title,
+      content: input.content,
+      category: input.category,
+      instrument: input.instrument,
+      next_step: input.next_step,
+      tempo: input.tempo,
+      duration_minutes: input.duration_minutes,
+    };
+
+    // 1) Try to update an existing reflection in place.
+    const { data: updated, error: updateErr } = await supabase
       .from("journal_entries")
-      .select("id")
+      .update(updateFields)
       .eq("user_id", user_id)
       .eq("session_id", session_id)
       .eq("entry_type", "session_reflection")
-      .order("created_at", { ascending: true })
-      .limit(1)
+      .select()
       .maybeSingle();
-    if (findErr) {
-      console.error("journal.upsertSessionReflection.find", findErr);
+    if (updateErr) {
+      console.error("journal.upsertSessionReflection.update", updateErr);
       return null;
     }
-    if (existing) {
-      const { data, error } = await supabase
+    if (updated) return updated as JournalEntry;
+
+    // 2) No row existed — try insert. A partial unique index on
+    //    (user_id, session_id) WHERE entry_type='session_reflection'
+    //    guarantees only one INSERT wins under concurrent submits.
+    const { data: inserted, error: insertErr } = await supabase
+      .from("journal_entries")
+      .insert(input)
+      .select()
+      .single();
+    if (!insertErr) return inserted as JournalEntry;
+
+    // 3) Concurrent insert lost the race — re-run the update path.
+    if ((insertErr as { code?: string }).code === "23505") {
+      const { data: retry, error: retryErr } = await supabase
         .from("journal_entries")
-        .update({
-          title: input.title,
-          content: input.content,
-          category: input.category,
-          instrument: input.instrument,
-          next_step: input.next_step,
-          tempo: input.tempo,
-          duration_minutes: input.duration_minutes,
-        })
-        .eq("id", existing.id)
+        .update(updateFields)
         .eq("user_id", user_id)
+        .eq("session_id", session_id)
+        .eq("entry_type", "session_reflection")
         .select()
-        .single();
-      if (error) {
-        console.error("journal.upsertSessionReflection.update", error);
+        .maybeSingle();
+      if (retryErr) {
+        console.error("journal.upsertSessionReflection.retry", retryErr);
         return null;
       }
-      return data as JournalEntry;
+      return (retry as JournalEntry) ?? null;
     }
-    return this.add(input);
+
+    console.error("journal.upsertSessionReflection.insert", insertErr);
+    return null;
   },
 };
 
