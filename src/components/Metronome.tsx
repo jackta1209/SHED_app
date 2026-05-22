@@ -257,6 +257,18 @@ export function Metronome({
       g.connect(ctx.destination);
       ctxRef.current = ctx;
       masterGainRef.current = g;
+      // iOS Safari unlock: synchronously play an inaudible 1-sample buffer
+      // inside the user gesture so the audio hardware is fully enabled before
+      // the scheduler's setInterval starts creating oscillators.
+      try {
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(ctx.destination);
+        src.start(0);
+      } catch (e) {
+        console.warn("iOS audio unlock buffer failed:", e);
+      }
     }
     if (ctxRef.current.state === "suspended") void ctxRef.current.resume();
     return ctxRef.current;
