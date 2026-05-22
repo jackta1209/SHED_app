@@ -108,7 +108,7 @@ function ActiveSession() {
         });
       }
       if (wasResumed && !s.was_resumed) {
-        sessionStore.update(s.id, { was_resumed: true });
+        sessionStore.update(s.id, { was_resumed: true }, user.id);
       }
       const notes = await journalStore.forSession(user.id, id);
       setSessionNotes(notes);

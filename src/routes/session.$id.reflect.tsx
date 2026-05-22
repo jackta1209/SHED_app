@@ -87,15 +87,19 @@ function Reflect() {
       // Reflection-only fields. Do NOT overwrite completion_method, end_time,
       // elapsed_seconds, practice_minutes, start_time — those belong to
       // completeSession.
-      await sessionStore.update(s.id, {
-        what_practiced: practiced,
-        what_improved: improved,
-        what_was_difficult: difficult,
-        next_step: next,
-        focus_rating: focus,
-        progress_rating: progress,
-        final_notes: final,
-      });
+      await sessionStore.update(
+        s.id,
+        {
+          what_practiced: practiced,
+          what_improved: improved,
+          what_was_difficult: difficult,
+          next_step: next,
+          focus_rating: focus,
+          progress_rating: progress,
+          final_notes: final,
+        },
+        user.id,
+      );
 
       const profile = await profileStore.get(user.id);
       await journalStore.upsertSessionReflection({
