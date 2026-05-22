@@ -62,6 +62,7 @@ function ActiveSession() {
   const [showAssistant, setShowAssistant] = useState(false);
   const [metronomeStopSignal, setMetronomeStopSignal] = useState(0);
   const finishedRef = useRef(false);
+  const autoFinishBlockedRef = useRef(false);
   const alertedRef = useRef({ ten: false, one: false, done: false });
   const startedAtRef = useRef<number>(Date.now());
   const isActiveSessionRoute = location.pathname === `/session/${id}`;
@@ -107,7 +108,7 @@ function ActiveSession() {
         });
       }
       if (wasResumed && !s.was_resumed) {
-        sessionStore.update(s.id, { was_resumed: true });
+        sessionStore.update(s.id, { was_resumed: true }, user.id);
       }
       const notes = await journalStore.forSession(user.id, id);
       setSessionNotes(notes);
@@ -211,9 +212,11 @@ function ActiveSession() {
     }
   }, [remaining, prefs, totalSeconds]);
 
-  // Auto-finish on timer end
+  // Auto-finish on timer end. Disabled once a prior auto-attempt failed —
+  // user must explicitly retry via the Finish button to avoid a tight
+  // re-entry loop while the DB is unreachable.
   useEffect(() => {
-    if (!session || finishedRef.current) return;
+    if (!session || finishedRef.current || autoFinishBlockedRef.current) return;
     if (remaining === 0 && totalSeconds > 0) {
       completeSession("timer_complete");
     }
@@ -282,25 +285,31 @@ function ActiveSession() {
 
     let updated = null as Awaited<ReturnType<typeof sessionStore.update>>;
     try {
-      updated = await sessionStore.update(session.id, {
-        status: "completed",
-        completion_method: reason,
-        end_time: now,
-        elapsed_seconds: reason === "timer_complete" ? planned * 60 : elapsedSec,
-        practice_minutes: practiceMinutes,
-        distraction_count: distractions,
-        exit_attempt_count: exitAttempts,
-        focus_score: focusScore,
-      });
+      updated = await sessionStore.update(
+        session.id,
+        {
+          status: "completed",
+          completion_method: reason,
+          end_time: now,
+          elapsed_seconds: reason === "timer_complete" ? planned * 60 : elapsedSec,
+          practice_minutes: practiceMinutes,
+          distraction_count: distractions,
+          exit_attempt_count: exitAttempts,
+          focus_score: focusScore,
+        },
+        user.id,
+      );
     } catch (err) {
       console.error("Failed saving session", err);
       updated = null;
     }
 
     if (!updated) {
-      // Save failed. Do NOT clear local state or navigate — keep the session
-      // recoverable so the user can retry finishing it.
+      // Save failed. Keep the session recoverable. Block the auto-finish
+      // effect from re-entering on every render, but allow the user to
+      // manually retry via the Finish button.
       finishedRef.current = false;
+      autoFinishBlockedRef.current = true;
       setRunning(reason === "manual_finish");
       toast.error("Couldn't save your session. Check your connection and tap Finish again.");
       return;
@@ -329,13 +338,17 @@ function ActiveSession() {
     )
       return;
     if (user && session) {
-      await sessionStore.update(session.id, {
-        status: "abandoned",
-        end_time: new Date().toISOString(),
-        elapsed_seconds: elapsedSeconds(),
-        distraction_count: distractions,
-        exit_attempt_count: exitAttempts,
-      });
+      await sessionStore.update(
+        session.id,
+        {
+          status: "abandoned",
+          end_time: new Date().toISOString(),
+          elapsed_seconds: elapsedSeconds(),
+          distraction_count: distractions,
+          exit_attempt_count: exitAttempts,
+        },
+        user.id,
+      );
       // Close any open tool usage rows so they aren't left orphan.
       await finalizeOpenToolUsage(user.id, session.id);
       activeSessionStore.clear(user.id);

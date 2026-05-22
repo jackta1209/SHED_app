@@ -274,18 +274,22 @@ export const sessionStore = {
       .select()
       .single();
     if (error) {
+      // Postgres unique_violation. Means a concurrent insert (or a leftover
+      // active session) already exists — fall back to the existing one so
+      // the user is taken into their real session instead of seeing an error.
+      if ((error as { code?: string }).code === "23505") {
+        const existing = await this.findActive(input.user_id);
+        if (existing) return existing;
+      }
       console.error("sessions.create", error);
       return null;
     }
     return data as PracticeSession;
   },
-  async update(id: string, patch: Partial<PracticeSession>): Promise<PracticeSession | null> {
-    const { data, error } = await supabase
-      .from("practice_sessions")
-      .update(patch)
-      .eq("id", id)
-      .select()
-      .single();
+  async update(id: string, patch: Partial<PracticeSession>, userId?: string): Promise<PracticeSession | null> {
+    let q = supabase.from("practice_sessions").update(patch).eq("id", id);
+    if (userId) q = q.eq("user_id", userId);
+    const { data, error } = await q.select().single();
     if (error) {
       console.error("sessions.update", error);
       return null;
@@ -377,6 +381,7 @@ export const journalStore = {
           duration_minutes: input.duration_minutes,
         })
         .eq("id", existing.id)
+        .eq("user_id", user_id)
         .select()
         .single();
       if (error) {
@@ -430,13 +435,26 @@ export const settingsStore = {
       .eq("user_id", userId)
       .maybeSingle();
     if (data) return data as UserSettings;
-    // ensure row exists
-    const { data: created } = await supabase
+    // Ensure row exists. UPSERT (not INSERT) so a concurrent insert that
+    // raced ahead of us doesn't crash with a unique-constraint error and
+    // leave callers with `null`.
+    const { data: created, error: upsertErr } = await supabase
       .from("user_settings")
-      .insert({ user_id: userId })
+      .upsert({ user_id: userId }, { onConflict: "user_id" })
       .select()
       .single();
-    return created as UserSettings;
+    if (created) return created as UserSettings;
+    // Last-ditch: re-read in case upsert conflict path returned nothing.
+    const { data: refetched } = await supabase
+      .from("user_settings")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (refetched) return refetched as UserSettings;
+    if (upsertErr) console.error("settings.get.upsert", upsertErr);
+    // Defensive: synthesize a minimal in-memory settings object so callers
+    // can still render and field-access without crashing.
+    return { user_id: userId } as UserSettings;
   },
   async save(userId: string, patch: Partial<UserSettings>): Promise<UserSettings | null> {
     const { data, error } = await supabase

@@ -78,7 +78,8 @@ export function useToolUsageLogger(tool: ToolName) {
             total_seconds: total,
             usage_data: dataRef.current as never,
           })
-          .eq("id", id);
+          .eq("id", id)
+          .eq("user_id", userId);
       } catch {
         /* swallow */
       }
@@ -157,7 +158,8 @@ export async function finalizeOpenToolUsage(
             closed_at: new Date(now).toISOString(),
             total_seconds: total,
           })
-          .eq("id", row.id);
+          .eq("id", row.id)
+          .eq("user_id", userId);
       }),
     );
   } catch {
