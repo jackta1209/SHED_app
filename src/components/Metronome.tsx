@@ -257,6 +257,18 @@ export function Metronome({
       g.connect(ctx.destination);
       ctxRef.current = ctx;
       masterGainRef.current = g;
+      // iOS Safari unlock: synchronously play an inaudible 1-sample buffer
+      // inside the user gesture so the audio hardware is fully enabled before
+      // the scheduler's setInterval starts creating oscillators.
+      try {
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(ctx.destination);
+        src.start(0);
+      } catch (e) {
+        console.warn("iOS audio unlock buffer failed:", e);
+      }
     }
     if (ctxRef.current.state === "suspended") void ctxRef.current.resume();
     return ctxRef.current;
@@ -388,6 +400,25 @@ export function Metronome({
   const toggle = useCallback(() => { running ? stop() : start(); }, [running, start, stop]);
 
   useEffect(() => { if (stopSignal > 0) stop(); }, [stopSignal, stop]);
+
+  // Resume AudioContext when returning to a backgrounded tab on iOS Safari.
+  // Only resumes if the metronome is supposed to be running; never restarts.
+  const runningRef = useRef(running);
+  useEffect(() => { runningRef.current = running; }, [running]);
+  useEffect(() => {
+    const onVis = () => {
+      if (
+        document.visibilityState === "visible" &&
+        runningRef.current &&
+        ctxRef.current &&
+        ctxRef.current.state === "suspended"
+      ) {
+        ctxRef.current.resume().catch(() => { /* harmless */ });
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
 
   useEffect(() => {
     return () => {
