@@ -5,11 +5,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 // --- CORS allowlist -------------------------------------------------------
 // Add the deployed production origin here once known. Localhost and Lovable
 // preview origins are allowed in dev/preview. Everything else is rejected.
-//
-// ACTION ITEM (manual): replace/extend PRODUCTION_ORIGINS with the real
-// production domain(s) once published, e.g. "https://shed.app".
 const PRODUCTION_ORIGINS = new Set<string>([
-  // "https://shed.app",
+  "https://hittheshed.com",
+  "https://www.hittheshed.com",
 ]);
 
 function isAllowedOrigin(origin: string | null): string | null {
