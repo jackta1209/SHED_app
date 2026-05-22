@@ -274,6 +274,13 @@ export const sessionStore = {
       .select()
       .single();
     if (error) {
+      // Postgres unique_violation. Means a concurrent insert (or a leftover
+      // active session) already exists — fall back to the existing one so
+      // the user is taken into their real session instead of seeing an error.
+      if ((error as { code?: string }).code === "23505") {
+        const existing = await this.findActive(input.user_id);
+        if (existing) return existing;
+      }
       console.error("sessions.create", error);
       return null;
     }
