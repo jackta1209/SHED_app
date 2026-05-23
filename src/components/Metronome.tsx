@@ -618,6 +618,50 @@ export function Metronome({
     }
   };
 
+  // Test Direct Beep — diagnostic only. Synchronously inside tap handler:
+  // create/resume ctx, then play an audible ~150ms oscillator beep.
+  const testDirectBeep = useCallback(() => {
+    const stateBefore = ctxRef.current?.state ?? "none";
+    dbg("test_beep_tapped", { stateBefore });
+    let ctx: AudioContext;
+    try {
+      ctx = ensureCtx();
+    } catch (e) {
+      const err = e as Error;
+      dbg("test_beep_ensureCtx_failed", { name: err?.name, message: err?.message });
+      return;
+    }
+    if (ctx.state === "suspended") {
+      ctx.resume().then(
+        () => dbg("test_beep_resume_resolved", { state: ctx.state }),
+        (e: Error) => dbg("test_beep_resume_rejected", { name: e?.name, message: e?.message }),
+      );
+    }
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      // Connect to master gain if present, else directly to destination.
+      if (masterGainRef.current) gain.connect(masterGainRef.current);
+      else gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.17);
+      dbg("test_beep_started", {
+        state: ctx.state, currentTime: ctx.currentTime,
+        connectedTo: masterGainRef.current ? "masterGain" : "destination",
+        shouldBeAudible: true,
+      });
+    } catch (e) {
+      const err = e as Error;
+      dbg("test_beep_failed", { name: err?.name, message: err?.message });
+    }
+  }, [dbg, ensureCtx]);
+
   const body = (
     <MetronomeBody
       compact={compact}
