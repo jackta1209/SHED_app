@@ -378,7 +378,6 @@ export function Metronome({
 
   const start = useCallback(() => {
     if (running) return;
-    dbg("start_tapped");
     const ctx = ensureCtx();
     beatRef.current = 0;
     subRef.current = 0;
@@ -388,8 +387,7 @@ export function Metronome({
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = window.setInterval(scheduler, LOOKAHEAD_MS);
     setRunning(true);
-    dbg("scheduler_started", { interval: LOOKAHEAD_MS });
-  }, [running, ensureCtx, scheduler, dbg]);
+  }, [running, ensureCtx, scheduler]);
 
   const stop = useCallback(() => {
     if (timerRef.current) {
@@ -412,31 +410,18 @@ export function Metronome({
   useEffect(() => { runningRef.current = running; }, [running]);
   useEffect(() => {
     const onVis = () => {
-      const vs = document.visibilityState;
-      visibilityStatusRef.current = { ...visibilityStatusRef.current, lastEvent: vs, at: Date.now() };
-      dbg("visibilitychange", { state: vs, running: runningRef.current });
       if (
-        vs === "visible" &&
+        document.visibilityState === "visible" &&
         runningRef.current &&
         ctxRef.current &&
         ctxRef.current.state === "suspended"
       ) {
-        visibilityStatusRef.current = { ...visibilityStatusRef.current, resumeAttempted: true };
-        ctxRef.current.resume().then(
-          () => {
-            visibilityStatusRef.current = { ...visibilityStatusRef.current, resumeResolved: true, stateAfter: ctxRef.current?.state };
-            dbg("vis_resume_resolved", { state: ctxRef.current?.state });
-          },
-          (e: Error) => {
-            visibilityStatusRef.current = { ...visibilityStatusRef.current, resumeRejected: true, name: e?.name };
-            dbg("vis_resume_rejected", { name: e?.name, message: e?.message });
-          },
-        );
+        void ctxRef.current.resume();
       }
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
-  }, [dbg]);
+  }, []);
 
   useEffect(() => {
     return () => {
