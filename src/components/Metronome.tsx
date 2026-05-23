@@ -216,34 +216,6 @@ export function Metronome({
 
   const tapsRef = useRef<number[]>([]);
 
-  // ---------- Temporary mobile audio diagnostics (gated by ?debugAudio=1) ----------
-  // Remove this block + the <DebugPanel/> render + the dbg(...) calls to clean up.
-  const [debugOn, setDebugOn] = useState(false);
-  const debugOnRef = useRef(false);
-  const [, setDebugTick] = useState(0);
-  const debugEventsRef = useRef<{ t: number; ev: string; data?: unknown }[]>([]);
-  const schedulerTickCountRef = useRef(0);
-  const lastSchedulerTickRef = useRef(0);
-  const scheduledNodeCountRef = useRef(0);
-  const lastSoundRef = useRef<Record<string, unknown> | null>(null);
-  const unlockStatusRef = useRef<Record<string, unknown>>({ attempted: false });
-  const visibilityStatusRef = useRef<Record<string, unknown>>({});
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const on = new URLSearchParams(window.location.search).get("debugAudio") === "1";
-      debugOnRef.current = on;
-      setDebugOn(on);
-    } catch { /* noop */ }
-  }, []);
-  const dbg = useCallback((ev: string, data?: unknown) => {
-    if (!debugOnRef.current) return;
-    const arr = debugEventsRef.current;
-    arr.push({ t: Date.now(), ev, data });
-    if (arr.length > 30) arr.splice(0, arr.length - 30);
-    setDebugTick((n) => (n + 1) % 1000000);
-  }, []);
-  // ---------- end diagnostics block ----------
 
   // Tool usage logging (only active during a practice session).
   const usage = useToolUsageLogger("metronome");
