@@ -235,17 +235,29 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
           <label className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
             <input
               type="file"
-              accept="audio/*,video/*"
+              accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.aiff,.aif"
               className="hidden"
               onChange={handleFile}
             />
             <span className="inline-flex items-center gap-1">
-              <Upload size={12} /> Import
+              <Upload size={12} /> Audio
+            </span>
+          </label>
+          <label className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+            <input
+              type="file"
+              accept="video/*,.mp4,.mov,.m4v,.webm"
+              className="hidden"
+              onChange={handleFile}
+            />
+            <span className="inline-flex items-center gap-1">
+              <Upload size={12} /> Video
             </span>
           </label>
           <FullscreenButton active={fullscreen} onToggle={() => setFullscreen((v) => !v)} />
         </div>
       </div>
+
 
       {!mediaUrl && (
         <div className="mt-4 rounded-xl border border-dashed border-border p-5 text-center">
