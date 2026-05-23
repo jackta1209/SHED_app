@@ -322,8 +322,22 @@ export function Metronome({
     const ctx = ctxRef.current;
     const out = masterGainRef.current;
     if (!ctx || !out) return;
-    scheduleSound(ctx, out, time, soundRef.current, kind);
-  }, []);
+    try {
+      scheduleSound(ctx, out, time, soundRef.current, kind);
+      scheduledNodeCountRef.current += 1;
+      if (debugOnRef.current) {
+        lastSoundRef.current = {
+          kind, sound: soundRef.current, scheduledTime: time,
+          ctxCurrentTime: ctx.currentTime, startOk: true,
+        };
+        dbg("sound_scheduled", { kind, sound: soundRef.current, t: time, now: ctx.currentTime });
+      }
+    } catch (e) {
+      const err = e as Error;
+      lastSoundRef.current = { kind, startOk: false, name: err?.name, message: err?.message };
+      dbg("sound_failed", { kind, name: err?.name, message: err?.message });
+    }
+  }, [dbg]);
 
   // Scheduler
   const scheduler = useCallback(() => {
