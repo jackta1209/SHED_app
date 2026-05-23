@@ -248,7 +248,6 @@ export function Metronome({
   }, [volume]);
 
   const ensureCtx = useCallback(() => {
-    const stateBefore = ctxRef.current?.state ?? "none";
     if (!ctxRef.current) {
       const Ctor =
         window.AudioContext ||
@@ -259,66 +258,37 @@ export function Metronome({
       g.connect(ctx.destination);
       ctxRef.current = ctx;
       masterGainRef.current = g;
-      dbg("ctx_created", { state: ctx.state, sampleRate: ctx.sampleRate });
       // iOS Safari unlock: synchronously play an inaudible 1-sample buffer
       // inside the user gesture so the audio hardware is fully enabled before
       // the scheduler's setInterval starts creating oscillators.
-      unlockStatusRef.current = { attempted: true };
       try {
         const buffer = ctx.createBuffer(1, 1, 22050);
         const src = ctx.createBufferSource();
         src.buffer = buffer;
         src.connect(ctx.destination);
         src.start(0);
-        unlockStatusRef.current = { attempted: true, startOk: true };
-        dbg("unlock_buffer_ok");
       } catch (e) {
-        const err = e as Error;
-        unlockStatusRef.current = { attempted: true, startOk: false, name: err?.name, message: err?.message };
-        dbg("unlock_buffer_failed", { name: err?.name, message: err?.message });
         console.warn("iOS audio unlock buffer failed:", e);
       }
     }
     if (ctxRef.current.state === "suspended") {
-      ctxRef.current.resume().then(
-        () => dbg("resume_resolved", { state: ctxRef.current?.state }),
-        (e: Error) => dbg("resume_rejected", { name: e?.name, message: e?.message }),
-      );
+      void ctxRef.current.resume();
     }
-    dbg("ensureCtx", { stateBefore, stateAfter: ctxRef.current.state });
     return ctxRef.current;
-  }, [dbg]);
+  }, []);
 
   const playClick = useCallback((time: number, kind: "accent" | "normal" | "sub") => {
     if (mutedRef.current) return;
     const ctx = ctxRef.current;
     const out = masterGainRef.current;
     if (!ctx || !out) return;
-    try {
-      scheduleSound(ctx, out, time, soundRef.current, kind);
-      scheduledNodeCountRef.current += 1;
-      if (debugOnRef.current) {
-        lastSoundRef.current = {
-          kind, sound: soundRef.current, scheduledTime: time,
-          ctxCurrentTime: ctx.currentTime, startOk: true,
-        };
-        dbg("sound_scheduled", { kind, sound: soundRef.current, t: time, now: ctx.currentTime });
-      }
-    } catch (e) {
-      const err = e as Error;
-      lastSoundRef.current = { kind, startOk: false, name: err?.name, message: err?.message };
-      dbg("sound_failed", { kind, name: err?.name, message: err?.message });
-    }
-  }, [dbg]);
+    scheduleSound(ctx, out, time, soundRef.current, kind);
+  }, []);
 
   // Scheduler
   const scheduler = useCallback(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
-    if (debugOnRef.current) {
-      schedulerTickCountRef.current += 1;
-      lastSchedulerTickRef.current = Date.now();
-    }
     const sub = subdivisionRef.current;
     while (nextNoteTimeRef.current < ctx.currentTime + SCHEDULE_AHEAD) {
       const t = nextNoteTimeRef.current;
