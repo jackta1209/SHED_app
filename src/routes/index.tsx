@@ -24,7 +24,13 @@ function Landing() {
     if (!loading && user) navigate({ to: "/dashboard", replace: true });
   }, [loading, user, navigate]);
 
-  if (loading || user) return null;
+  // Do NOT gate the entire page on `loading`. Restrictive in-app browsers
+  // (Google Search app, Gmail, Instagram, etc.) can leave
+  // supabase.auth.getSession() pending indefinitely because storage is
+  // restricted, which previously caused the landing page to render blank.
+  // The hero must always render; only the CTA reacts to auth state.
+
+
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -53,12 +59,22 @@ function Landing() {
               “Fold here in the shed, so you don’t get cooked on the bandstand.”
             </p>
           </div>
-          <Link
-            to="/login"
-            className="block w-full rounded-xl bg-primary px-5 py-4 text-center text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            Enter the shed
-          </Link>
+          {loading ? (
+            <span
+              aria-busy="true"
+              className="block w-full rounded-xl bg-primary px-5 py-4 text-center text-sm font-medium text-primary-foreground opacity-70"
+            >
+              Loading…
+            </span>
+          ) : (
+            <Link
+              to={user ? "/dashboard" : "/login"}
+              className="block w-full rounded-xl bg-primary px-5 py-4 text-center text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Enter the shed
+            </Link>
+          )}
+
           <p className="text-center text-xs text-muted-foreground">
             Built for developing musicians, students, and pros.
           </p>

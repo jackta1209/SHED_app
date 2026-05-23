@@ -110,20 +110,36 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
     }
   }, [speed, mediaUrl, mediaType]);
 
+  function detectKind(file: File): "audio" | "video" | null {
+    const t = (file.type || "").toLowerCase();
+    if (t.startsWith("audio/")) return "audio";
+    if (t.startsWith("video/")) return "video";
+    // iOS Safari / Files / iCloud often returns an empty `type`.
+    // Fall back to extension sniffing.
+    const name = (file.name || "").toLowerCase();
+    const ext = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1) : "";
+    const audioExts = ["mp3", "m4a", "aac", "wav", "flac", "ogg", "oga", "opus", "aiff", "aif"];
+    const videoExts = ["mp4", "mov", "m4v", "webm", "qt"];
+    if (audioExts.includes(ext)) return "audio";
+    if (videoExts.includes(ext)) return "video";
+    return null;
+  }
+
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const isAudio = file.type.startsWith("audio/");
-    const isVideo = file.type.startsWith("video/");
-    if (!isAudio && !isVideo) {
-      toast.error("Unsupported file. Please choose an audio or video file.");
+    const kind = detectKind(file);
+    if (!kind) {
+      const hint = file.type || (file.name.includes(".") ? `.${file.name.split(".").pop()}` : "unknown");
+      toast.error(`Unsupported file (${hint}). Choose an audio (mp3/m4a/wav/aac) or video (mp4/mov) file.`);
+      e.target.value = "";
       return;
     }
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     const url = URL.createObjectURL(file);
     objectUrlRef.current = url;
     setMediaUrl(url);
-    setMediaType(isAudio ? "audio" : "video");
+    setMediaType(kind);
     setFileName(file.name);
     setCurrentTime(0);
     setDuration(0);
@@ -135,6 +151,7 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
     setSpeed(1.0);
     e.target.value = "";
   }
+
 
   function togglePlay() {
     const el = getMedia();
@@ -218,17 +235,29 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
           <label className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
             <input
               type="file"
-              accept="audio/*,video/*"
+              accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.aiff,.aif"
               className="hidden"
               onChange={handleFile}
             />
             <span className="inline-flex items-center gap-1">
-              <Upload size={12} /> Import
+              <Upload size={12} /> Audio
+            </span>
+          </label>
+          <label className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+            <input
+              type="file"
+              accept="video/*,.mp4,.mov,.m4v,.webm"
+              className="hidden"
+              onChange={handleFile}
+            />
+            <span className="inline-flex items-center gap-1">
+              <Upload size={12} /> Video
             </span>
           </label>
           <FullscreenButton active={fullscreen} onToggle={() => setFullscreen((v) => !v)} />
         </div>
       </div>
+
 
       {!mediaUrl && (
         <div className="mt-4 rounded-xl border border-dashed border-border p-5 text-center">
@@ -236,21 +265,34 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
             Import an audio or video file to slow it down, loop difficult sections, and
             practice without leaving SHED.
           </p>
-          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
-            <Upload size={12} />
-            Import File
-            <input
-              type="file"
-              accept="audio/*,video/*"
-              className="hidden"
-              onChange={handleFile}
-            />
-          </label>
+          <div className="mt-3 flex items-center justify-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
+              <Upload size={12} />
+              Import Audio
+              <input
+                type="file"
+                accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.aiff,.aif"
+                className="hidden"
+                onChange={handleFile}
+              />
+            </label>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs font-medium text-foreground">
+              <Upload size={12} />
+              Import Video
+              <input
+                type="file"
+                accept="video/*,.mp4,.mov,.m4v,.webm"
+                className="hidden"
+                onChange={handleFile}
+              />
+            </label>
+          </div>
           <p className="mt-3 text-[10px] text-muted-foreground">
             Imported audio/video files are temporary and will be lost after refresh or closing the tab.
           </p>
         </div>
       )}
+
 
       {mediaUrl && (
         <>
