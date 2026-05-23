@@ -618,11 +618,12 @@ export function Metronome({
     }
   };
 
-  // Test Direct Beep — diagnostic only. Synchronously inside tap handler:
-  // create/resume ctx, then play an audible ~150ms oscillator beep.
+  // Test Direct Beep — diagnostic only. Bypasses master gain / muted / volume
+  // entirely. osc -> dedicated gain -> ctx.destination. If this is audible but
+  // the metronome is not, the issue is the master gain / mute / routing path.
   const testDirectBeep = useCallback(() => {
     const stateBefore = ctxRef.current?.state ?? "none";
-    dbg("test_beep_tapped", { stateBefore });
+    dbg("test_beep_tapped", { stateBefore, bypass: "masterGain+muted+volume" });
     let ctx: AudioContext;
     try {
       ctx = ensureCtx();
@@ -642,18 +643,23 @@ export function Metronome({
       const gain = ctx.createGain();
       osc.type = "sine";
       osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
+      const now = ctx.currentTime;
+      // Short fade in/out envelope to avoid clicks. Peak ~0.3.
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(0.3, now + 0.02);
+      gain.gain.linearRampToValueAtTime(0.3, now + 0.16);
+      gain.gain.linearRampToValueAtTime(0.0001, now + 0.18);
       osc.connect(gain);
-      // Connect to master gain if present, else directly to destination.
-      if (masterGainRef.current) gain.connect(masterGainRef.current);
-      else gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.17);
+      // BYPASS master gain — connect directly to destination.
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
       dbg("test_beep_started", {
-        state: ctx.state, currentTime: ctx.currentTime,
-        connectedTo: masterGainRef.current ? "masterGain" : "destination",
+        state: ctx.state,
+        currentTime: now,
+        connectedTo: "ctx.destination (DIRECT, bypassing masterGain)",
+        peakGain: 0.3,
+        durationMs: 200,
         shouldBeAudible: true,
       });
     } catch (e) {
@@ -661,6 +667,67 @@ export function Metronome({
       dbg("test_beep_failed", { name: err?.name, message: err?.message });
     }
   }, [dbg, ensureCtx]);
+
+  // Test HTMLAudio Beep — diagnostic only. Separates Web Audio failure from
+  // general browser audio failure. Plays a tiny inline-WAV via <audio>.
+  const testHtmlAudioBeep = useCallback(() => {
+    dbg("html_audio_tapped");
+    try {
+      // Generate a ~200ms 880Hz mono 8-bit PCM WAV as a base64 data URL.
+      const sampleRate = 8000;
+      const durationS = 0.2;
+      const numSamples = Math.floor(sampleRate * durationS);
+      const headerSize = 44;
+      const buf = new ArrayBuffer(headerSize + numSamples);
+      const view = new DataView(buf);
+      const writeStr = (off: number, s: string) => {
+        for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+      };
+      writeStr(0, "RIFF");
+      view.setUint32(4, 36 + numSamples, true);
+      writeStr(8, "WAVE");
+      writeStr(12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); // PCM
+      view.setUint16(22, 1, true); // mono
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate, true);
+      view.setUint16(32, 1, true);
+      view.setUint16(34, 8, true);
+      writeStr(36, "data");
+      view.setUint32(40, numSamples, true);
+      const freq = 880;
+      const amp = 80; // ~63% of int8 around 128 center
+      for (let i = 0; i < numSamples; i++) {
+        // Simple fade in/out (10ms each) to avoid clicks.
+        const fadeIn = Math.min(1, i / (sampleRate * 0.01));
+        const fadeOut = Math.min(1, (numSamples - i) / (sampleRate * 0.01));
+        const env = Math.min(fadeIn, fadeOut);
+        const s = Math.sin(2 * Math.PI * freq * (i / sampleRate)) * amp * env;
+        view.setUint8(headerSize + i, 128 + Math.round(s));
+      }
+      // Convert to base64
+      let bin = "";
+      const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      const b64 = typeof btoa !== "undefined" ? btoa(bin) : "";
+      const url = `data:audio/wav;base64,${b64}`;
+      const audio = new Audio(url);
+      audio.volume = 1;
+      const p = audio.play();
+      if (p && typeof p.then === "function") {
+        p.then(
+          () => dbg("html_audio_play_resolved", { duration: durationS }),
+          (e: Error) => dbg("html_audio_play_rejected", { name: e?.name, message: e?.message }),
+        );
+      } else {
+        dbg("html_audio_play_no_promise");
+      }
+    } catch (e) {
+      const err = e as Error;
+      dbg("html_audio_failed", { name: err?.name, message: err?.message });
+    }
+  }, [dbg]);
 
   const body = (
     <MetronomeBody
