@@ -784,10 +784,12 @@ export function Metronome({
       visibility={visibilityStatusRef.current}
       lastSound={lastSoundRef.current}
       masterGainExists={masterGainRef.current !== null}
+      masterGainValue={masterGainRef.current?.gain.value ?? null}
       volume={volume}
       muted={muted}
       sound={sound}
       onTestBeep={testDirectBeep}
+      onTestHtmlAudio={testHtmlAudioBeep}
     />
   ) : null;
 
