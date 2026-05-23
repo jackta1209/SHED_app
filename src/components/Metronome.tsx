@@ -1166,10 +1166,12 @@ function DebugPanel(props: {
   visibility: Record<string, unknown>;
   lastSound: Record<string, unknown> | null;
   masterGainExists: boolean;
+  masterGainValue: number | null;
   volume: number;
   muted: boolean;
   sound: string;
   onTestBeep: () => void;
+  onTestHtmlAudio: () => void;
 }) {
   const ctx = props.ctxRef.current;
   const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
