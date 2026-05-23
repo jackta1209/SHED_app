@@ -276,6 +276,7 @@ export function Metronome({
   }, [volume]);
 
   const ensureCtx = useCallback(() => {
+    const stateBefore = ctxRef.current?.state ?? "none";
     if (!ctxRef.current) {
       const Ctor =
         window.AudioContext ||
@@ -286,22 +287,35 @@ export function Metronome({
       g.connect(ctx.destination);
       ctxRef.current = ctx;
       masterGainRef.current = g;
+      dbg("ctx_created", { state: ctx.state, sampleRate: ctx.sampleRate });
       // iOS Safari unlock: synchronously play an inaudible 1-sample buffer
       // inside the user gesture so the audio hardware is fully enabled before
       // the scheduler's setInterval starts creating oscillators.
+      unlockStatusRef.current = { attempted: true };
       try {
         const buffer = ctx.createBuffer(1, 1, 22050);
         const src = ctx.createBufferSource();
         src.buffer = buffer;
         src.connect(ctx.destination);
         src.start(0);
+        unlockStatusRef.current = { attempted: true, startOk: true };
+        dbg("unlock_buffer_ok");
       } catch (e) {
+        const err = e as Error;
+        unlockStatusRef.current = { attempted: true, startOk: false, name: err?.name, message: err?.message };
+        dbg("unlock_buffer_failed", { name: err?.name, message: err?.message });
         console.warn("iOS audio unlock buffer failed:", e);
       }
     }
-    if (ctxRef.current.state === "suspended") void ctxRef.current.resume();
+    if (ctxRef.current.state === "suspended") {
+      ctxRef.current.resume().then(
+        () => dbg("resume_resolved", { state: ctxRef.current?.state }),
+        (e: Error) => dbg("resume_rejected", { name: e?.name, message: e?.message }),
+      );
+    }
+    dbg("ensureCtx", { stateBefore, stateAfter: ctxRef.current.state });
     return ctxRef.current;
-  }, []);
+  }, [dbg]);
 
   const playClick = useCallback((time: number, kind: "accent" | "normal" | "sub") => {
     if (mutedRef.current) return;
