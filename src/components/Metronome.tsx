@@ -216,6 +216,35 @@ export function Metronome({
 
   const tapsRef = useRef<number[]>([]);
 
+  // ---------- Temporary mobile audio diagnostics (gated by ?debugAudio=1) ----------
+  // Remove this block + the <DebugPanel/> render + the dbg(...) calls to clean up.
+  const [debugOn, setDebugOn] = useState(false);
+  const debugOnRef = useRef(false);
+  const [, setDebugTick] = useState(0);
+  const debugEventsRef = useRef<{ t: number; ev: string; data?: unknown }[]>([]);
+  const schedulerTickCountRef = useRef(0);
+  const lastSchedulerTickRef = useRef(0);
+  const scheduledNodeCountRef = useRef(0);
+  const lastSoundRef = useRef<Record<string, unknown> | null>(null);
+  const unlockStatusRef = useRef<Record<string, unknown>>({ attempted: false });
+  const visibilityStatusRef = useRef<Record<string, unknown>>({});
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const on = new URLSearchParams(window.location.search).get("debugAudio") === "1";
+      debugOnRef.current = on;
+      setDebugOn(on);
+    } catch { /* noop */ }
+  }, []);
+  const dbg = useCallback((ev: string, data?: unknown) => {
+    if (!debugOnRef.current) return;
+    const arr = debugEventsRef.current;
+    arr.push({ t: Date.now(), ev, data });
+    if (arr.length > 30) arr.splice(0, arr.length - 30);
+    setDebugTick((n) => (n + 1) % 1000000);
+  }, []);
+  // ---------- end diagnostics block ----------
+
   // Tool usage logging (only active during a practice session).
   const usage = useToolUsageLogger("metronome");
   useEffect(() => { usage.track("bpm_values_used", bpm); }, [bpm]);
@@ -247,6 +276,7 @@ export function Metronome({
   }, [volume]);
 
   const ensureCtx = useCallback(() => {
+    const stateBefore = ctxRef.current?.state ?? "none";
     if (!ctxRef.current) {
       const Ctor =
         window.AudioContext ||
@@ -257,35 +287,66 @@ export function Metronome({
       g.connect(ctx.destination);
       ctxRef.current = ctx;
       masterGainRef.current = g;
+      dbg("ctx_created", { state: ctx.state, sampleRate: ctx.sampleRate });
       // iOS Safari unlock: synchronously play an inaudible 1-sample buffer
       // inside the user gesture so the audio hardware is fully enabled before
       // the scheduler's setInterval starts creating oscillators.
+      unlockStatusRef.current = { attempted: true };
       try {
         const buffer = ctx.createBuffer(1, 1, 22050);
         const src = ctx.createBufferSource();
         src.buffer = buffer;
         src.connect(ctx.destination);
         src.start(0);
+        unlockStatusRef.current = { attempted: true, startOk: true };
+        dbg("unlock_buffer_ok");
       } catch (e) {
+        const err = e as Error;
+        unlockStatusRef.current = { attempted: true, startOk: false, name: err?.name, message: err?.message };
+        dbg("unlock_buffer_failed", { name: err?.name, message: err?.message });
         console.warn("iOS audio unlock buffer failed:", e);
       }
     }
-    if (ctxRef.current.state === "suspended") void ctxRef.current.resume();
+    if (ctxRef.current.state === "suspended") {
+      ctxRef.current.resume().then(
+        () => dbg("resume_resolved", { state: ctxRef.current?.state }),
+        (e: Error) => dbg("resume_rejected", { name: e?.name, message: e?.message }),
+      );
+    }
+    dbg("ensureCtx", { stateBefore, stateAfter: ctxRef.current.state });
     return ctxRef.current;
-  }, []);
+  }, [dbg]);
 
   const playClick = useCallback((time: number, kind: "accent" | "normal" | "sub") => {
     if (mutedRef.current) return;
     const ctx = ctxRef.current;
     const out = masterGainRef.current;
     if (!ctx || !out) return;
-    scheduleSound(ctx, out, time, soundRef.current, kind);
-  }, []);
+    try {
+      scheduleSound(ctx, out, time, soundRef.current, kind);
+      scheduledNodeCountRef.current += 1;
+      if (debugOnRef.current) {
+        lastSoundRef.current = {
+          kind, sound: soundRef.current, scheduledTime: time,
+          ctxCurrentTime: ctx.currentTime, startOk: true,
+        };
+        dbg("sound_scheduled", { kind, sound: soundRef.current, t: time, now: ctx.currentTime });
+      }
+    } catch (e) {
+      const err = e as Error;
+      lastSoundRef.current = { kind, startOk: false, name: err?.name, message: err?.message };
+      dbg("sound_failed", { kind, name: err?.name, message: err?.message });
+    }
+  }, [dbg]);
 
   // Scheduler
   const scheduler = useCallback(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
+    if (debugOnRef.current) {
+      schedulerTickCountRef.current += 1;
+      lastSchedulerTickRef.current = Date.now();
+    }
     const sub = subdivisionRef.current;
     while (nextNoteTimeRef.current < ctx.currentTime + SCHEDULE_AHEAD) {
       const t = nextNoteTimeRef.current;
@@ -375,6 +436,7 @@ export function Metronome({
 
   const start = useCallback(() => {
     if (running) return;
+    dbg("start_tapped");
     const ctx = ensureCtx();
     beatRef.current = 0;
     subRef.current = 0;
@@ -384,7 +446,8 @@ export function Metronome({
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = window.setInterval(scheduler, LOOKAHEAD_MS);
     setRunning(true);
-  }, [running, ensureCtx, scheduler]);
+    dbg("scheduler_started", { interval: LOOKAHEAD_MS });
+  }, [running, ensureCtx, scheduler, dbg]);
 
   const stop = useCallback(() => {
     if (timerRef.current) {
@@ -407,18 +470,31 @@ export function Metronome({
   useEffect(() => { runningRef.current = running; }, [running]);
   useEffect(() => {
     const onVis = () => {
+      const vs = document.visibilityState;
+      visibilityStatusRef.current = { ...visibilityStatusRef.current, lastEvent: vs, at: Date.now() };
+      dbg("visibilitychange", { state: vs, running: runningRef.current });
       if (
-        document.visibilityState === "visible" &&
+        vs === "visible" &&
         runningRef.current &&
         ctxRef.current &&
         ctxRef.current.state === "suspended"
       ) {
-        ctxRef.current.resume().catch(() => { /* harmless */ });
+        visibilityStatusRef.current = { ...visibilityStatusRef.current, resumeAttempted: true };
+        ctxRef.current.resume().then(
+          () => {
+            visibilityStatusRef.current = { ...visibilityStatusRef.current, resumeResolved: true, stateAfter: ctxRef.current?.state };
+            dbg("vis_resume_resolved", { state: ctxRef.current?.state });
+          },
+          (e: Error) => {
+            visibilityStatusRef.current = { ...visibilityStatusRef.current, resumeRejected: true, name: e?.name };
+            dbg("vis_resume_rejected", { name: e?.name, message: e?.message });
+          },
+        );
       }
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
+  }, [dbg]);
 
   useEffect(() => {
     return () => {
@@ -542,6 +618,50 @@ export function Metronome({
     }
   };
 
+  // Test Direct Beep — diagnostic only. Synchronously inside tap handler:
+  // create/resume ctx, then play an audible ~150ms oscillator beep.
+  const testDirectBeep = useCallback(() => {
+    const stateBefore = ctxRef.current?.state ?? "none";
+    dbg("test_beep_tapped", { stateBefore });
+    let ctx: AudioContext;
+    try {
+      ctx = ensureCtx();
+    } catch (e) {
+      const err = e as Error;
+      dbg("test_beep_ensureCtx_failed", { name: err?.name, message: err?.message });
+      return;
+    }
+    if (ctx.state === "suspended") {
+      ctx.resume().then(
+        () => dbg("test_beep_resume_resolved", { state: ctx.state }),
+        (e: Error) => dbg("test_beep_resume_rejected", { name: e?.name, message: e?.message }),
+      );
+    }
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      // Connect to master gain if present, else directly to destination.
+      if (masterGainRef.current) gain.connect(masterGainRef.current);
+      else gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.17);
+      dbg("test_beep_started", {
+        state: ctx.state, currentTime: ctx.currentTime,
+        connectedTo: masterGainRef.current ? "masterGain" : "destination",
+        shouldBeAudible: true,
+      });
+    } catch (e) {
+      const err = e as Error;
+      dbg("test_beep_failed", { name: err?.name, message: err?.message });
+    }
+  }, [dbg, ensureCtx]);
+
   const body = (
     <MetronomeBody
       compact={compact}
@@ -582,23 +702,53 @@ export function Metronome({
     />
   );
 
+  const debugPanel = debugOn ? (
+    <DebugPanel
+      events={debugEventsRef.current}
+      ctxRef={ctxRef}
+      schedulerTickCount={schedulerTickCountRef.current}
+      lastSchedulerTick={lastSchedulerTickRef.current}
+      scheduledNodeCount={scheduledNodeCountRef.current}
+      nextNoteTime={nextNoteTimeRef.current}
+      currentBeatRef={beatRef.current}
+      running={running}
+      timerExists={timerRef.current !== null}
+      unlock={unlockStatusRef.current}
+      visibility={visibilityStatusRef.current}
+      lastSound={lastSoundRef.current}
+      masterGainExists={masterGainRef.current !== null}
+      volume={volume}
+      muted={muted}
+      sound={sound}
+      onTestBeep={testDirectBeep}
+    />
+  ) : null;
+
   if (fullscreen && typeof document !== "undefined") {
     return createPortal(
-      <div className="fixed inset-0 z-[100] flex flex-col bg-background">
-        <div className="flex items-center justify-between border-b border-border bg-background/95 px-3 py-2">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">Metronome</p>
-          <Button size="sm" variant="ghost" onClick={() => setFullscreen(false)} aria-label="Exit fullscreen">
-            <X size={14} className="mr-1" /> Close
-          </Button>
+      <>
+        <div className="fixed inset-0 z-[100] flex flex-col bg-background">
+          <div className="flex items-center justify-between border-b border-border bg-background/95 px-3 py-2">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Metronome</p>
+            <Button size="sm" variant="ghost" onClick={() => setFullscreen(false)} aria-label="Exit fullscreen">
+              <X size={14} className="mr-1" /> Close
+            </Button>
+          </div>
+          <div className="flex-1 overflow-auto p-4">
+            <div className="mx-auto w-full max-w-2xl">{body}</div>
+          </div>
         </div>
-        <div className="flex-1 overflow-auto p-4">
-          <div className="mx-auto w-full max-w-2xl">{body}</div>
-        </div>
-      </div>,
+        {debugPanel}
+      </>,
       document.body,
     );
   }
-  return body;
+  return (
+    <>
+      {body}
+      {debugPanel}
+    </>
+  );
 }
 
 // =====================================================================
@@ -925,5 +1075,121 @@ function MetronomeBody(p: BodyProps) {
         </Button>
       </div>
     </div>
+  );
+}
+
+// =====================================================================
+// Temporary diagnostic panel. Gated by ?debugAudio=1. Remove this whole
+// block (and the dbg(...) instrumentation + diagnostics state block above)
+// in a single cleanup pass when no longer needed.
+// =====================================================================
+function DebugPanel(props: {
+  events: { t: number; ev: string; data?: unknown }[];
+  ctxRef: React.RefObject<AudioContext | null>;
+  schedulerTickCount: number;
+  lastSchedulerTick: number;
+  scheduledNodeCount: number;
+  nextNoteTime: number;
+  currentBeatRef: number;
+  running: boolean;
+  timerExists: boolean;
+  unlock: Record<string, unknown>;
+  visibility: Record<string, unknown>;
+  lastSound: Record<string, unknown> | null;
+  masterGainExists: boolean;
+  volume: number;
+  muted: boolean;
+  sound: string;
+  onTestBeep: () => void;
+}) {
+  const ctx = props.ctxRef.current;
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const isIOS = /iPad|iPhone|iPod/i.test(ua);
+  const isWebKit = /WebKit/i.test(ua) && !/Edg|Chrome\/(?!.*Mobile)/i.test(ua);
+  const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS/i.test(ua);
+  const visibility = typeof document !== "undefined" ? document.visibilityState : "n/a";
+  const row = "flex justify-between gap-2 py-0.5";
+  return createPortal(
+    <div
+      style={{ zIndex: 9999 }}
+      className="fixed bottom-0 left-0 right-0 max-h-[55vh] overflow-auto border-t border-yellow-500 bg-black/95 p-3 font-mono text-[10px] leading-tight text-yellow-200"
+    >
+      <div className="mb-2 flex items-center justify-between">
+        <span className="font-bold text-yellow-400">🎛 Audio Debug (?debugAudio=1)</span>
+        <button
+          onClick={props.onTestBeep}
+          className="rounded bg-yellow-500 px-3 py-1 text-xs font-bold text-black"
+        >
+          ▶ Test Direct Beep
+        </button>
+      </div>
+
+      <details open className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">Browser / device</summary>
+        <div className={row}><span>UA</span><span className="truncate text-right">{ua}</span></div>
+        <div className={row}><span>iOS</span><span>{String(isIOS)}</span></div>
+        <div className={row}><span>WebKit</span><span>{String(isWebKit)}</span></div>
+        <div className={row}><span>Safari</span><span>{String(isSafari)}</span></div>
+        <div className={row}><span>visibility</span><span>{visibility}</span></div>
+      </details>
+
+      <details open className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">AudioContext</summary>
+        <div className={row}><span>exists</span><span>{String(!!ctx)}</span></div>
+        <div className={row}><span>state</span><span>{ctx?.state ?? "—"}</span></div>
+        <div className={row}><span>sampleRate</span><span>{ctx?.sampleRate ?? "—"}</span></div>
+        <div className={row}><span>currentTime</span><span>{ctx?.currentTime.toFixed(3) ?? "—"}</span></div>
+      </details>
+
+      <details className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">Unlock buffer</summary>
+        <pre className="whitespace-pre-wrap">{JSON.stringify(props.unlock, null, 1)}</pre>
+      </details>
+
+      <details className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">Scheduler</summary>
+        <div className={row}><span>running</span><span>{String(props.running)}</span></div>
+        <div className={row}><span>interval exists</span><span>{String(props.timerExists)}</span></div>
+        <div className={row}><span>tick count</span><span>{props.schedulerTickCount}</span></div>
+        <div className={row}><span>last tick</span><span>{props.lastSchedulerTick ? new Date(props.lastSchedulerTick).toLocaleTimeString() : "—"}</span></div>
+        <div className={row}><span>nextNoteTime</span><span>{props.nextNoteTime.toFixed(3)}</span></div>
+        <div className={row}><span>currentBeatRef</span><span>{props.currentBeatRef}</span></div>
+        <div className={row}><span>scheduled nodes</span><span>{props.scheduledNodeCount}</span></div>
+      </details>
+
+      <details className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">Last sound</summary>
+        <pre className="whitespace-pre-wrap">{JSON.stringify(props.lastSound, null, 1)}</pre>
+      </details>
+
+      <details className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">Gain / output</summary>
+        <div className={row}><span>masterGain</span><span>{String(props.masterGainExists)}</span></div>
+        <div className={row}><span>volume</span><span>{props.volume.toFixed(2)}</span></div>
+        <div className={row}><span>muted</span><span>{String(props.muted)}</span></div>
+        <div className={row}><span>sound</span><span>{props.sound}</span></div>
+      </details>
+
+      <details className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">Visibility / resume</summary>
+        <pre className="whitespace-pre-wrap">{JSON.stringify(props.visibility, null, 1)}</pre>
+      </details>
+
+      <details open>
+        <summary className="cursor-pointer text-yellow-400">Events (last {props.events.length})</summary>
+        <div>
+          {props.events.slice().reverse().map((e, i) => (
+            <div key={i} className="border-b border-yellow-900/40 py-0.5">
+              <span className="text-yellow-500">{new Date(e.t).toLocaleTimeString()}</span>{" "}
+              <span className="font-bold">{e.ev}</span>{" "}
+              {e.data !== undefined && (
+                <span className="text-yellow-300/80">{JSON.stringify(e.data)}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </details>
+    </div>,
+    document.body,
   );
 }
