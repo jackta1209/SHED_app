@@ -265,21 +265,34 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
             Import an audio or video file to slow it down, loop difficult sections, and
             practice without leaving SHED.
           </p>
-          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
-            <Upload size={12} />
-            Import File
-            <input
-              type="file"
-              accept="audio/*,video/*"
-              className="hidden"
-              onChange={handleFile}
-            />
-          </label>
+          <div className="mt-3 flex items-center justify-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
+              <Upload size={12} />
+              Import Audio
+              <input
+                type="file"
+                accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.aiff,.aif"
+                className="hidden"
+                onChange={handleFile}
+              />
+            </label>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs font-medium text-foreground">
+              <Upload size={12} />
+              Import Video
+              <input
+                type="file"
+                accept="video/*,.mp4,.mov,.m4v,.webm"
+                className="hidden"
+                onChange={handleFile}
+              />
+            </label>
+          </div>
           <p className="mt-3 text-[10px] text-muted-foreground">
             Imported audio/video files are temporary and will be lost after refresh or closing the tab.
           </p>
         </div>
       )}
+
 
       {mediaUrl && (
         <>
