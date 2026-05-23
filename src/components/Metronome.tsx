@@ -1077,3 +1077,119 @@ function MetronomeBody(p: BodyProps) {
     </div>
   );
 }
+
+// =====================================================================
+// Temporary diagnostic panel. Gated by ?debugAudio=1. Remove this whole
+// block (and the dbg(...) instrumentation + diagnostics state block above)
+// in a single cleanup pass when no longer needed.
+// =====================================================================
+function DebugPanel(props: {
+  events: { t: number; ev: string; data?: unknown }[];
+  ctxRef: React.RefObject<AudioContext | null>;
+  schedulerTickCount: number;
+  lastSchedulerTick: number;
+  scheduledNodeCount: number;
+  nextNoteTime: number;
+  currentBeatRef: number;
+  running: boolean;
+  timerExists: boolean;
+  unlock: Record<string, unknown>;
+  visibility: Record<string, unknown>;
+  lastSound: Record<string, unknown> | null;
+  masterGainExists: boolean;
+  volume: number;
+  muted: boolean;
+  sound: string;
+  onTestBeep: () => void;
+}) {
+  const ctx = props.ctxRef.current;
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const isIOS = /iPad|iPhone|iPod/i.test(ua);
+  const isWebKit = /WebKit/i.test(ua) && !/Edg|Chrome\/(?!.*Mobile)/i.test(ua);
+  const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS/i.test(ua);
+  const visibility = typeof document !== "undefined" ? document.visibilityState : "n/a";
+  const row = "flex justify-between gap-2 py-0.5";
+  return createPortal(
+    <div
+      style={{ zIndex: 9999 }}
+      className="fixed bottom-0 left-0 right-0 max-h-[55vh] overflow-auto border-t border-yellow-500 bg-black/95 p-3 font-mono text-[10px] leading-tight text-yellow-200"
+    >
+      <div className="mb-2 flex items-center justify-between">
+        <span className="font-bold text-yellow-400">🎛 Audio Debug (?debugAudio=1)</span>
+        <button
+          onClick={props.onTestBeep}
+          className="rounded bg-yellow-500 px-3 py-1 text-xs font-bold text-black"
+        >
+          ▶ Test Direct Beep
+        </button>
+      </div>
+
+      <details open className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">Browser / device</summary>
+        <div className={row}><span>UA</span><span className="truncate text-right">{ua}</span></div>
+        <div className={row}><span>iOS</span><span>{String(isIOS)}</span></div>
+        <div className={row}><span>WebKit</span><span>{String(isWebKit)}</span></div>
+        <div className={row}><span>Safari</span><span>{String(isSafari)}</span></div>
+        <div className={row}><span>visibility</span><span>{visibility}</span></div>
+      </details>
+
+      <details open className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">AudioContext</summary>
+        <div className={row}><span>exists</span><span>{String(!!ctx)}</span></div>
+        <div className={row}><span>state</span><span>{ctx?.state ?? "—"}</span></div>
+        <div className={row}><span>sampleRate</span><span>{ctx?.sampleRate ?? "—"}</span></div>
+        <div className={row}><span>currentTime</span><span>{ctx?.currentTime.toFixed(3) ?? "—"}</span></div>
+      </details>
+
+      <details className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">Unlock buffer</summary>
+        <pre className="whitespace-pre-wrap">{JSON.stringify(props.unlock, null, 1)}</pre>
+      </details>
+
+      <details className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">Scheduler</summary>
+        <div className={row}><span>running</span><span>{String(props.running)}</span></div>
+        <div className={row}><span>interval exists</span><span>{String(props.timerExists)}</span></div>
+        <div className={row}><span>tick count</span><span>{props.schedulerTickCount}</span></div>
+        <div className={row}><span>last tick</span><span>{props.lastSchedulerTick ? new Date(props.lastSchedulerTick).toLocaleTimeString() : "—"}</span></div>
+        <div className={row}><span>nextNoteTime</span><span>{props.nextNoteTime.toFixed(3)}</span></div>
+        <div className={row}><span>currentBeatRef</span><span>{props.currentBeatRef}</span></div>
+        <div className={row}><span>scheduled nodes</span><span>{props.scheduledNodeCount}</span></div>
+      </details>
+
+      <details className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">Last sound</summary>
+        <pre className="whitespace-pre-wrap">{JSON.stringify(props.lastSound, null, 1)}</pre>
+      </details>
+
+      <details className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">Gain / output</summary>
+        <div className={row}><span>masterGain</span><span>{String(props.masterGainExists)}</span></div>
+        <div className={row}><span>volume</span><span>{props.volume.toFixed(2)}</span></div>
+        <div className={row}><span>muted</span><span>{String(props.muted)}</span></div>
+        <div className={row}><span>sound</span><span>{props.sound}</span></div>
+      </details>
+
+      <details className="mb-1">
+        <summary className="cursor-pointer text-yellow-400">Visibility / resume</summary>
+        <pre className="whitespace-pre-wrap">{JSON.stringify(props.visibility, null, 1)}</pre>
+      </details>
+
+      <details open>
+        <summary className="cursor-pointer text-yellow-400">Events (last {props.events.length})</summary>
+        <div>
+          {props.events.slice().reverse().map((e, i) => (
+            <div key={i} className="border-b border-yellow-900/40 py-0.5">
+              <span className="text-yellow-500">{new Date(e.t).toLocaleTimeString()}</span>{" "}
+              <span className="font-bold">{e.ev}</span>{" "}
+              {e.data !== undefined && (
+                <span className="text-yellow-300/80">{JSON.stringify(e.data)}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </details>
+    </div>,
+    document.body,
+  );
+}
