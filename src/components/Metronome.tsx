@@ -436,6 +436,7 @@ export function Metronome({
 
   const start = useCallback(() => {
     if (running) return;
+    dbg("start_tapped");
     const ctx = ensureCtx();
     beatRef.current = 0;
     subRef.current = 0;
@@ -445,7 +446,8 @@ export function Metronome({
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = window.setInterval(scheduler, LOOKAHEAD_MS);
     setRunning(true);
-  }, [running, ensureCtx, scheduler]);
+    dbg("scheduler_started", { interval: LOOKAHEAD_MS });
+  }, [running, ensureCtx, scheduler, dbg]);
 
   const stop = useCallback(() => {
     if (timerRef.current) {
