@@ -24,7 +24,13 @@ function Landing() {
     if (!loading && user) navigate({ to: "/dashboard", replace: true });
   }, [loading, user, navigate]);
 
-  if (loading || user) return null;
+  // Do NOT gate the entire page on `loading`. Restrictive in-app browsers
+  // (Google Search app, Gmail, Instagram, etc.) can leave
+  // supabase.auth.getSession() pending indefinitely because storage is
+  // restricted, which previously caused the landing page to render blank.
+  // The hero must always render; only the CTA reacts to auth state.
+
+
 
   return (
     <div className="min-h-screen bg-background text-foreground">
