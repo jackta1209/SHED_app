@@ -586,55 +586,23 @@ export function Metronome({
     />
   );
 
-  const debugPanel = debugOn ? (
-    <DebugPanel
-      events={debugEventsRef.current}
-      ctxRef={ctxRef}
-      schedulerTickCount={schedulerTickCountRef.current}
-      lastSchedulerTick={lastSchedulerTickRef.current}
-      scheduledNodeCount={scheduledNodeCountRef.current}
-      nextNoteTime={nextNoteTimeRef.current}
-      currentBeatRef={beatRef.current}
-      running={running}
-      timerExists={timerRef.current !== null}
-      unlock={unlockStatusRef.current}
-      visibility={visibilityStatusRef.current}
-      lastSound={lastSoundRef.current}
-      masterGainExists={masterGainRef.current !== null}
-      masterGainValue={masterGainRef.current?.gain.value ?? null}
-      volume={volume}
-      muted={muted}
-      sound={sound}
-      onTestBeep={testDirectBeep}
-      onTestHtmlAudio={testHtmlAudioBeep}
-    />
-  ) : null;
-
   if (fullscreen && typeof document !== "undefined") {
     return createPortal(
-      <>
-        <div className="fixed inset-0 z-[100] flex flex-col bg-background">
-          <div className="flex items-center justify-between border-b border-border bg-background/95 px-3 py-2">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Metronome</p>
-            <Button size="sm" variant="ghost" onClick={() => setFullscreen(false)} aria-label="Exit fullscreen">
-              <X size={14} className="mr-1" /> Close
-            </Button>
-          </div>
-          <div className="flex-1 overflow-auto p-4">
-            <div className="mx-auto w-full max-w-2xl">{body}</div>
-          </div>
+      <div className="fixed inset-0 z-[100] flex flex-col bg-background">
+        <div className="flex items-center justify-between border-b border-border bg-background/95 px-3 py-2">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Metronome</p>
+          <Button size="sm" variant="ghost" onClick={() => setFullscreen(false)} aria-label="Exit fullscreen">
+            <X size={14} className="mr-1" /> Close
+          </Button>
         </div>
-        {debugPanel}
-      </>,
+        <div className="flex-1 overflow-auto p-4">
+          <div className="mx-auto w-full max-w-2xl">{body}</div>
+        </div>
+      </div>,
       document.body,
     );
   }
-  return (
-    <>
-      {body}
-      {debugPanel}
-    </>
-  );
+  return body;
 }
 
 // =====================================================================
