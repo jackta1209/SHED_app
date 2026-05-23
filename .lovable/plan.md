@@ -1,191 +1,159 @@
-# SHED Production QA Audit — hittheshed.com
+# Pre-Beta Diagnosis Report
 
-Read-only report. No code changed. Combines: production browser probes (landing page, login, signup, protected-route redirect, CORS preflight from 4 origins), full code review (auth+session, tools+AI, RLS+security) via parallel subagents, security scan, and edge-function log review.
+## 1. Executive Summary
 
-**Constraint hit:** signup requires email confirmation (Supabase default), and I have no inbox access to `yen.ng7979@gmail.com`. All authenticated UI flows below are evaluated by code review + non-authenticated production probes. To live-test the authenticated UI, you'll need to confirm that account and either share the session or run the flows yourself with this report as a checklist.
+**Verdict: Ready but warn testers — fix Issue 3 and Issue 4 before wide invites.**
 
----
-
-## 1 · Executive summary
-
-**Verdict: Almost ready for private beta — minor-to-major fixes needed.**
-
-Foundations are solid: RLS is correctly defined on all 9 user-owned tables, the `handle_new_user` trigger is hardened (`SECURITY DEFINER` + revoked execute), service-role keys are server-only, the CORS regression fix is verified live, edge-function logs are clean. The landing page renders, redirects work, signup sends the confirmation email.
-
-What's blocking a clean beta is a small set of **race conditions in the practice-session lifecycle** (duplicate sessions on double-tap, auto-finish re-entry loop, settings TOCTOU crash) and a **defense-in-depth gap** where client `UPDATE` queries rely only on RLS for ownership. None expose data today, but all four are easy to hit in real usage by a beta tester on flaky mobile networks.
+Two of the four issues are real correctness bugs in the Slow Downer (Issues 1 & 2) but only affect the video-import path, which is a secondary use case. Issue 3 (iPhone audio import being silently rejected) blocks the core mobile Slow Downer flow and should be fixed first. Issue 4 (Google in-app browser) is the kind of "looks broken to a new user" failure that disproportionately damages first impressions, so a graceful fallback is warranted before beta. None of the four corrupt data or touch auth/Supabase, so a small private beta can proceed in parallel with these fixes.
 
 ---
 
-## 2 · Critical blockers (must fix before beta)
+## 2. Issue 1 — Desktop: video black + no waveform
 
-### B-1 · `settingsStore.get()` can return null and crash the new-session page
-- **Where:** `src/lib/store.ts:426–439`, called from `src/routes/session.new.tsx:46`
-- **Repro:** First-ever visit to `/session/new` if the `user_settings` insert from `handle_new_user` and a concurrent fetch race. Second concurrent INSERT hits unique constraint, returns null, then `s.next_focus` throws.
-- **Impact:** Uncaught TypeError, new-session form unusable. High likelihood for fresh accounts.
-- **Recommended fix:** Use UPSERT in the fallback insert, or null-guard the caller.
+**Root cause (two stacked problems):**
 
-### B-2 · Duplicate active practice sessions on double-tap / second tab
-- **Where:** `src/routes/session.new.tsx:55–75` + `src/lib/store.ts:228–281`
-- **Repro:** Tap "Begin session" twice on slow connection, or open two tabs. `findActive`→`create` is a client-side check-then-act with no DB unique constraint on `(user_id, status='active')`.
-- **Impact:** Orphaned `status='active'` rows that never complete; cascading confusion across history/dashboard.
-- **Recommended fix:** Add a partial unique index `(user_id) WHERE status='active'`, plus handle the resulting conflict.
+1. **Black video display:** In `src/components/SlowDowner.tsx` the `<video>` element is rendered with `className="mt-3 w-full rounded-lg bg-black"` and **no `controls`, no `poster`, no `preload` set above `metadata`**. The transport buttons call `el.play()` correctly, so playback technically works — but until the user hits Play the element shows the `bg-black` background (no first-frame preview), and even during playback Safari/Chrome on desktop will keep showing black for many `.mov`/HEVC files because the codec audio decodes but the video track does not. Combined with the fact that there is no visible `<video>` control surface, the user perceives the video as "broken / black".
+2. **No waveform for video:** `Waveform.tsx` `decodePeaks()` does `fetch(url) → arrayBuffer → ctx.decodeAudioData(...)`. `decodeAudioData` only accepts a complete file whose container is a supported *audio* format. For MP4/MOV containers, all major browsers either reject the buffer outright or return `EncodingError`. The catch handler sets `error="Could not analyze audio"` and renders the generic "Waveform unavailable" overlay. This is by design of the Web Audio API, not a bug in the decoder loop.
 
-### B-3 · Auto-finish re-entry loop on transient DB error
-- **Where:** `src/routes/session.$id.tsx:215–221, 264–307`
-- **Repro:** Timer hits 0, `sessionStore.update` fails (offline blip), code resets `finishedRef.current = false` → the auto-finish `useEffect` (deps include `remaining=0`) re-fires every render in a tight loop until DB recovers. Risk of duplicate completion writes once it does.
-- **Recommended fix:** Don't reset `finishedRef` on failure; expose a "Retry finish" button instead.
+**Files involved:** `src/components/SlowDowner.tsx` (video element), `src/components/Waveform.tsx` (decode path).
 
-### B-4 · `sessionStore.update` / journal update / tool-usage update not scoped by `user_id`
-- **Where:** `src/lib/store.ts:285, 370`, `src/lib/tool-usage.ts:76, 156`
-- **Status today:** **Not exploitable.** RLS UPDATE policies on all three tables enforce `auth.uid() = user_id`. The security scan flags this as IDOR risk because the *only* gate is RLS — a future RLS edit/regression would immediately become a full cross-user IDOR.
-- **Recommended fix:** Add `.eq('user_id', userId)` to every mutating query — defense in depth.
+**Severity:** Minor (video path is secondary; playback + speed + A/B all work).
+
+**Minimal fix:**
+- Add `controls`, `preload="metadata"`, and a `poster` (or just rely on `preload="metadata"` so the first frame shows) to the `<video>` element. Remove `bg-black` or make it conditional on `mediaType === "audio"`.
+- In `Waveform.tsx`, accept an optional `disabled` / `kind` prop. When `mediaType === "video"`, skip `decodePeaks` and render a neutral timeline strip with the message "Waveform unavailable for video — use the scrubber below." (Generating peaks from the video's audio track would require `<canvas captureStream>` or `MediaElementAudioSourceNode + ScriptProcessor` — out of scope for a minimal fix.)
+
+**Blocks beta?** No.
 
 ---
 
-## 3 · Major issues (fix during private beta)
+## 3. Issue 2 — Mobile: video waveform missing + timeline/slider out of sync
 
-| ID | Area | File | Issue |
-|---|---|---|---|
-| M-1 | Auth | `auth-context.tsx:44–68` | `onAuthStateChange` registered inside `getSession().then()` after `loading=false` — narrow window where `SIGNED_IN`/`TOKEN_REFRESHED` events fire before listener attaches |
-| M-2 | Auth | `login.tsx` | No redirect-when-already-authenticated guard; logged-in users see the login form |
-| M-3 | Auth | `login.tsx:54–67` | `setBusy(false)` fires before post-login async work; submit re-enables, double-submit window |
-| M-4 | Session | `session.$id.tsx:82–91` | Pause-resume math uses only one `paused_at` — multi-pause inflates elapsed and under-reports remaining time on tab reopen |
-| M-5 | Session | `session.$id.tsx:178–188` | Async `logExit` inside `beforeunload` is cancelled by the browser — exit attempts on true unloads are silently dropped (need `sendBeacon`) |
-| M-6 | Reflection | `store.ts:354–388` | `upsertSessionReflection` SELECT-then-INSERT race on double-tap creates duplicate `session_reflection` rows |
-| M-7 | Account | `delete-user-account/index.ts:57–79` | Table rows deleted *before* `auth.admin.deleteUser`. If the Auth delete fails, user is left logged-in with no data — unrecoverable |
-| M-8 | Account | `account.tsx:62–63` | Double `signOut` call after deletion |
-| M-9 | History | `history.tsx:54` | Filter pills use hard-coded `PRACTICE_CATEGORIES` — user-custom categories never appear as filter options |
-| M-10 | AI | `ai-practice-assistant/index.ts:166–200` | TOCTOU on daily/monthly rate-limit: 30+ concurrent calls all pass the count check before any usage row is inserted; user can blow past the cap |
-| M-11 | AI | `ai-practice-assistant/index.ts:207–213` | `session_context` truncated by raw `slice(0,2000)` mid-JSON → `JSON.parse` throws → active context silently dropped |
-| M-12 | AI | `AssistantChat.tsx` + edge fn | No conversation history forwarded to OpenAI. Every turn is context-free; follow-ups can't reference prior replies |
-| M-13 | AI/CORS | `ai-practice-assistant/index.ts:34–39` | Rejected origins receive `Access-Control-Allow-Origin: "null"` (string literal). Sandboxed iframes (origin = literal `null`) may match this in Chromium |
-| M-14 | Tools | `tool-usage.ts:44–67` + `Metronome.tsx` | Initial state values (BPM, time sig, etc.) fire before the async insert resolves — first values of every tracked field silently dropped |
-| M-15 | SlowDowner | `SlowDowner.tsx:69` + `Waveform.tsx:199` | `mediaRef` is a new object every render → Waveform's rAF tears down and restarts on every `currentTime` update → playhead jank |
-| M-16 | SlowDowner | `SlowDowner.tsx:193` | Marker labels use `window.prompt()` — broken/unstyled on iOS Safari |
-| M-17 | Metronome | `Metronome.tsx:465–469` | Subdivision change clears `subRef`/`nextNoteTimeRef` but not `visualQueueRef` → ghost beat flashes for ~100 ms |
-| M-18 | Sheet reader | `SheetMusicReader.tsx:156–164` + `sheet-music-storage.ts` | No file-size guard; 100 MB PDF loaded into memory; QuotaExceeded detection uses message-text heuristic that breaks on Chrome |
+**Root cause:**
+
+1. **Waveform missing:** Same `decodeAudioData` limitation as Issue 1, with the additional iOS Safari constraint that even when the container *is* decodable, iOS will reject buffers above ~50 MB on older devices. Always fails for video on iPhone.
+2. **Timeline/slider drift on iPhone Safari:** `SlowDowner.tsx` updates `currentTime` state only on the element's `onTimeUpdate` event. iOS Safari fires `timeupdate` at **~4 Hz for video** (every ~250 ms), and at non-1.0 playback rates this becomes irregular — the slider visibly stutters and falls behind the actual `videoEl.currentTime`. Additionally, when `loopOn` is true, `onTimeUpdate` reassigns `el.currentTime = loopA`, which on iOS Safari can race with the element's own timeupdate emission and momentarily desync React state vs the element. The `Waveform` playhead masks this on desktop because it reads `media.currentTime` directly inside a rAF loop, but the React `<input type="range">` slider and `fmt(currentTime)` readout do not — they read state, which only ticks at the slow `timeupdate` rate.
+3. **(Adjacent risk):** `mediaRef = mediaType === "video" ? videoRef : audioRef` is recomputed on every render. The value is referentially unstable, but because both `videoRef` and `audioRef` are stable `useRef` objects, this is benign — confirmed not an active bug.
+
+**Files involved:** `src/components/SlowDowner.tsx` (onTimeUpdate handler, loop logic, slider binding), `src/components/Waveform.tsx`.
+
+**Severity:** Minor → Major (depending on how much the user relies on the slider on mobile). The audio-only path is unaffected, so this is paired with Issue 1.
+
+**Minimal fix:**
+- Drive `currentTime` updates from a single `requestAnimationFrame` loop while `playing` is true (read `mediaRef.current.currentTime` each frame), and fall back to `onTimeUpdate` only when paused. This already exists for the Waveform playhead — extract it to the parent.
+- Move A/B loop enforcement off `onTimeUpdate` into the same rAF loop so seeks happen at frame cadence.
+- For video, hide/grey out the waveform with a clear caption (see Issue 1 fix).
+
+**Blocks beta?** No.
 
 ---
 
-## 4 · Minor issues (polish / fix later)
+## 4. Issue 3 — iPhone Safari: audio file import rejected
 
-`m-1` Distraction listeners re-registered every tick (`remaining` in dep array) · `m-2` `finalizeOpenToolUsage` throw freezes user post-completion · `m-3` Theme FOUC — `__root.tsx` hard-codes `dark theme-minimal` on `<html>` while user prefs load · `m-4` `/reset-password` 600 ms "checking" delay on valid links · `m-5` Inactivity logout doesn't clear `active` session row — next login lands user in a stale session · `m-6` Empty-email submit silently no-ops · `m-7` `reset-password` stray `setTimeout(navigate, 1200)` without mount guard · `m-8` Journal entries have no edit/delete UI (typos in quick notes are permanent) · `m-9` History shows `created_at` instead of `start_time` · `m-10` Loop points never render in `ToolUsageSummary` (nested-array filter rejects them) · `m-11` `beforeunload` finalize is async → orphans tool-usage rows (needs `sendBeacon`) · `m-12` Multiple Metronome controls under 44 px tap-target minimum · `m-13` AssistantChat shows action-key text (`"suggest today"`) in user bubble, not button label · `m-14` Edge-fn `console.error` calls log only static strings, no error object → blind debugging · `m-15` Sheet reader IndexedDB unavailability (Safari ITP / private mode) shows blank library with no message · `m-16` Waveform `decodeAudioData` uses both callback + promise · `m-17` Metronome `AudioContext` not resumed on `visibilitychange` after iOS background suspend · `m-18` Landing page `<title>` and `og:title` contain a literal newline between "SHED" and "Focused practice…" — renders as broken in social previews · `m-19` No `<link rel="canonical">` on landing page · `m-20` No JSON-LD structured data.
+**Root cause:**
 
----
+In `SlowDowner.tsx > handleFile()`:
+```ts
+const isAudio = file.type.startsWith("audio/");
+const isVideo = file.type.startsWith("video/");
+if (!isAudio && !isVideo) {
+  toast.error("Unsupported file. Please choose an audio or video file.");
+  return;
+}
+```
 
-## 5 · Security / privacy concerns
+iOS Safari and the iOS Files picker frequently return **`file.type === ""`** for files chosen from iCloud Drive, Files, or even Voice Memos exports (especially `.m4a` and `.wav`). Some `.mp3` files come back as `audio/mpeg`, but many `.m4a` files from the Files app arrive with empty `type`. The strict prefix check therefore silently rejects valid audio files.
 
-- **OK** — Service-role key only in `client.server.ts` and edge functions; grep confirms zero imports from `src/`.
-- **OK** — `OPENAI_API_KEY` server-only; never returned in any response body.
-- **OK** — Edge-function `console.error` calls log generic strings, no user data; OpenAI response body explicitly not logged.
-- **OK** — RLS policies present on all 9 user tables, all scoped to `auth.uid() = user_id`.
-- **Medium** — Client UPDATEs rely solely on RLS (B-4 above).
-- **Medium** — PII to OpenAI when "Use practice context" is on: `display_name`, `goals`, `weaknesses`, `favorite_styles`, journal-entry content (truncated to 400 chars). Disclosed in UI (`AssistantChat.tsx:192`) but not minimized.
-- **Medium** — Prompt-injection surface: untreated journal/note text included in the system-role context block. Soft "treat as data" guard only.
-- **Low** — `delete-user-account` uses wildcard `Access-Control-Allow-Origin: *` (inconsistent with `ai-practice-assistant` allowlist). Auth-gated, but a destructive endpoint should mirror the allowlist.
-- **Low** — `ai_usage_events.user_id` has no FK to `auth.users` (every other user-scoped table does). No `ON DELETE CASCADE` — explicit deletion in the deletion edge function covers it, but any other deletion path would orphan rows.
-- **Low** — `uid()` in `store.ts` uses `Math.random()` for journal/routine/reminder IDs. Not used as auth tokens, so impact is small, but `crypto.randomUUID()` is the safe default.
+Additionally, the `<input accept="audio/*,video/*">` filter itself is a **soft hint** on iOS — iOS Files presents all files anyway — but combined with empty MIME types it leads to the user perceiving the picker as broken.
 
----
+A secondary contributor: there's only one `<input>` accepting both audio and video, which on iPhone causes the OS to default to the camera/photo-library picker instead of Files. iOS users hitting "Import" land in the photo gallery, where audio files don't exist.
 
-## 6 · Production-only issues
+**Files involved:** `src/components/SlowDowner.tsx` (only).
 
-Verified live via curl preflight (Origin → ACAO):
+**Severity:** **Major** — blocks the primary mobile use case.
 
-| Origin | Preflight | ACAO |
-|---|---|---|
-| `https://hittheshed.com` | 200 | `https://hittheshed.com` ✅ |
-| `https://www.hittheshed.com` | 200 | `https://www.hittheshed.com` ✅ |
-| `https://shed-focus-flow.lovable.app` | 200 | echoed back ✅ |
-| `https://evil.example.com` | 200 | `null` (string) — M-13 above |
+**Minimal fix:**
+1. Fall back to **extension sniffing** when `file.type` is empty: treat `.mp3 .m4a .aac .wav .flac .ogg .oga .opus` as audio and `.mp4 .mov .m4v .webm` as video.
+2. Split the picker into two buttons: **"Import audio"** (`accept="audio/*,.mp3,.m4a,.aac,.wav,.flac"`) and **"Import video"** (`accept="video/*,.mp4,.mov,.m4v"`). The explicit extensions in `accept` materially improve the iOS Files picker behavior.
+3. Replace the silent rejection with a clearer toast when both checks fail.
 
-**Regression check: PASS.** The earlier CORS fix is live on the production endpoint. No production-only issues beyond M-13.
-
-Landing page `<title>`/`og:title` newline (m-18) is a production-visible SEO/social-share defect.
+**Blocks beta?** Yes — fix before sending invites to mobile-first testers.
 
 ---
 
-## 7 · Mobile issues
+## 5. Issue 4 — Google in-app browser does not load app
 
-- Landing page at 390×844 — readable, centered, no overflow. ✅
-- Login page at 390×844 — readable. ✅
-- Metronome — multiple controls under 44 px (m-12).
-- SlowDowner marker prompt — broken on iOS Safari (M-16).
-- Sheet reader — no size guard; large PDFs will crash mobile Safari (M-18).
-- `beforeunload`/inactivity paths assume desktop tab semantics; on mobile background ≠ unload — exit logging unreliable (M-5, m-5).
+**Most likely cause (in order of probability):**
 
-Authenticated screens (dashboard, session, reflection, journal, history, account) **could not be live-tested on mobile** because of the email-confirmation gate. Code review shows the layout pattern is `max-w-md` mobile-first with fixed bottom nav — structurally sound.
+1. **In-app browser is Googlebot's WebView (Google Search app / Gmail / LinkedIn / Instagram) which strips/blocks third-party storage.** TanStack Start + Supabase Auth try to read `localStorage` and set cookies on first paint via `AuthProvider`. In WebViews that restrict storage, `supabase.auth.getSession()` can either hang or throw, leaving `loading === true` indefinitely. In `src/routes/index.tsx > Landing` the early return is `if (loading || user) return null;` — so when `loading` never resolves, **the landing page renders nothing**, exactly matching the "app does not load" symptom.
+2. Less likely: SSR/edge headers (Cloudflare workerd) returning a `Set-Cookie` with `SameSite=None` requirements that the Google WebView strips.
+3. Unlikely: CSP — no custom CSP headers are set in `__root.tsx`. Service worker — none registered. Apex vs `www.` — both alias to the same deploy, but worth verifying the apex doesn't 301 in a way that breaks in-app browsers.
 
----
+**Files involved:** `src/routes/index.tsx` (the `loading` gate), `src/lib/auth-context.tsx` (where `getSession()` is awaited), `src/integrations/supabase/client.ts` (auth storage config — read-only file, but relevant context).
 
-## 8 · Data integrity issues
+**Severity:** **Major** — Google search is the most common discovery path; a blank page on first click is a silent funnel killer.
 
-- **Duplicate active sessions** (B-2) — most likely to bite beta testers.
-- **Duplicate session reflections** (M-6) — second one orphaned.
-- **Auto-finish loop double-writes** (B-3).
-- **Multi-pause elapsed math wrong** (M-4) — `remaining` under-reported on resume.
-- **Distraction undercount** — `beforeunload` and `visibilitychange` listeners re-attached every tick (m-1) leave a ~1 ms hole per second; `logExit` async write dropped on real unloads (M-5).
-- **Tool-usage initial values dropped** (M-14) — every metronome session in beta will be missing its starting BPM/TS/subdivision.
-- **History date = `created_at`, not `start_time`** (m-9) — conceptually wrong.
-- **Loop-point usage never rendered** (m-10).
+**Minimal fix (UX, not architectural):**
+1. In `Landing`, render a **static hero immediately** (don't gate the entire page on `loading`). Only the "Enter the shed" CTA needs to wait for auth; the marketing content above the fold can render unconditionally so the page never appears blank.
+2. Detect known in-app browsers via `navigator.userAgent` (`GSA/`, `FBAN/`, `FBAV/`, `Instagram`, `Line/`, `Twitter`) and show a small **"Open in Safari"** banner with a `target="_blank"` link. This is the industry-standard mitigation.
+3. Add a 5-second timeout on `auth.getSession()` in `AuthProvider`; on timeout, set `loading=false` and treat the user as signed-out so the landing renders.
+
+**Blocks beta?** Yes, soft-blocks — fix at least step 1 (un-gated landing render) before beta.
 
 ---
 
-## 9 · Feature-by-feature status
+## 6. Recommended Fix Order
 
-| Feature | Tested | Status | Notes |
-|---|---|---|---|
-| Landing page | ✅ live + code | **Pass** | Title/og:title newline (m-18); no canonical |
-| Signup | ✅ live | **Warning** | Works; email confirm required (good) |
-| Login | code only | **Warning** | M-2/M-3 above |
-| Logout | code only | **Pass** | Plus minor m-5 |
-| Auth persistence | code only | **Warning** | M-1 listener race window |
-| Protected-route redirect | ✅ live | **Pass** | `/dashboard` → `/login` confirmed |
-| Dashboard | code only | n/a | Not live-tested (gated by email confirm) |
-| Practice timer | code only | **Fail** | B-2, B-3, M-4 |
-| Reflection | code only | **Warning** | M-6 duplicate-row race |
-| Quick notes | code only | **Warning** | m-8 no edit/delete |
-| Journal | code only | **Warning** | m-8 |
-| History | code only | **Warning** | M-9 filter; m-9 date field |
-| Session summary | code only | **Warning** | Depends on M-6 |
-| Distraction tracking | code only | **Warning** | M-5, m-1 |
-| Analytics | code only | n/a | Not in scope of this audit pass |
-| Metronome | code only | **Warning** | M-14, M-17, m-12, m-17 |
-| Slow downer | code only | **Warning** | M-15, M-16 |
-| Sheet music reader | code only | **Warning** | M-18, m-15 |
-| AI assistant | ✅ CORS live + code | **Warning** | M-10/M-11/M-12/M-13 — works but coarse |
-| Practice-context toggle | code only | **Pass** | Toggle logic OK; PII disclosure note in §5 |
-| Mobile nav | code only | **Pass** | Fixed bottom nav, `pb-[env(safe-area-inset-bottom)]` correct |
-| Account deletion | code only | **Warning** | M-7 partial-failure trap |
-| Edge functions | ✅ live + logs | **Pass** | CORS verified live, logs clean |
-| Supabase persistence + RLS | code + scan | **Pass** | Policies correct; B-4 is defense-in-depth |
+**Must fix before beta:**
+1. Issue 3 — iPhone audio import (extension fallback + split inputs).
+2. Issue 4 step 1 — un-gate the landing page so Google WebView never sees a blank.
+
+**Fix during beta:**
+3. Issue 4 steps 2–3 — in-app browser banner + auth timeout.
+4. Issue 1 — video display polish (controls, preload, conditional bg-black).
+5. Issue 2 — rAF-driven timeline updates on mobile.
+
+**Document as known limitation:**
+- Waveform unavailable for video files (decodeAudioData cannot read MP4/MOV containers). Show inline notice instead of silent failure.
+
+**Fix later:**
+- True video-track audio analysis (would need `MediaElementAudioSourceNode` + offline rendering; non-trivial, out of scope for beta).
 
 ---
 
-## 10 · Recommended fix order
+## 7. Files Likely Needing Changes
 
-**Fix before beta (Critical):** B-1 settings UPSERT · B-2 unique active-session index · B-3 auto-finish loop · B-4 add `user_id` to UPDATEs.
+- `src/components/SlowDowner.tsx` — Issues 1, 2, 3 (file input, video element, timeline rAF, loop logic).
+- `src/components/Waveform.tsx` — Issues 1, 2 (skip-for-video mode + clearer caption).
+- `src/routes/index.tsx` — Issue 4 step 1 (un-gate landing render).
+- `src/lib/auth-context.tsx` — Issue 4 step 3 (auth timeout).
+- *(Optionally new)* `src/lib/in-app-browser.ts` — Issue 4 step 2 (UA detection + banner component).
 
-**Fix during private beta (Major):** M-7 deletion ordering · M-6 reflection unique constraint · M-4 multi-pause math · M-5 `sendBeacon` for exit logging · M-2/M-3 login guards · M-10/M-11/M-12 AI assistant correctness · M-13 CORS-null · M-14 tool-usage capture race · M-15/M-16 SlowDowner UX · M-9 history filters.
-
-**Fix later (Minor):** m-* batch, especially m-12 (tap-target sizes), m-3 (theme FOUC), m-18 (landing title newline + canonical), m-15 (sheet reader IndexedDB feedback).
-
----
-
-## 11 · Files most likely to be touched by fixes
-
-`src/lib/store.ts` · `src/lib/tool-usage.ts` · `src/lib/auth-context.tsx` · `src/routes/session.new.tsx` · `src/routes/session.$id.tsx` · `src/routes/session.$id.reflect.tsx` · `src/routes/login.tsx` · `src/routes/reset-password.tsx` · `src/routes/history.tsx` · `src/routes/account.tsx` · `src/routes/__root.tsx` · `src/components/AssistantChat.tsx` · `src/components/Metronome.tsx` · `src/components/SlowDowner.tsx` · `src/components/Waveform.tsx` · `src/components/SheetMusicReader.tsx` · `src/components/ToolUsageSummary.tsx` · `src/lib/sheet-music-storage.ts` · `supabase/functions/ai-practice-assistant/index.ts` · `supabase/functions/delete-user-account/index.ts` · plus one new SQL migration for the partial unique index on active sessions and unique constraint on `(session_id, entry_type='session_reflection')`.
+No changes to Supabase, RLS, auth schema, AI assistant, journal, history, metronome, or sheet reader.
 
 ---
 
-## 12 · Final verdict
+## 8. Proposed Minimal Build-Mode Prompt (highest-priority fixes)
 
-**Not ready for private beta yet — but very close.** Ship-block is small and surgical: the 4 critical items in §2 plus M-7 (deletion ordering) and M-6 (reflection unique constraint). Together that's ~half a day of focused work plus one migration. Everything else can land *during* beta without burning testers.
-
-If you push live right now, expect: (1) some testers stuck on the new-session screen with a JS error on first visit (B-1), (2) duplicate active sessions on flaky 4G or impatient double-taps (B-2), (3) at least one tester with a half-deleted account if the Auth delete blips (M-7).
-
-If you fix §2 + M-6 + M-7 and ship, beta will be solid. During beta, watch closely for: duplicate `practice_sessions` rows with `status='active'`, duplicate `journal_entries` with `entry_type='session_reflection'`, and the AI assistant's daily-cap counter being exceeded (M-10).
-
----
-
-*Reminder: no code was changed. Approve this plan if you want me to switch to build mode and start applying fixes — I'd recommend starting with B-1 through B-4 only, then re-running this audit.*
+> Fix the two beta-blocking issues found in pre-beta diagnosis: iPhone Safari audio import rejection, and Google in-app browser blank landing page.
+>
+> **Scope — do not exceed:**
+> - Edit only `src/components/SlowDowner.tsx` and `src/routes/index.tsx`.
+> - Do not touch Supabase, RLS, auth schema, the metronome, journal, history, session, AI assistant, or sheet reader.
+> - Do not redesign the landing page or the Slow Downer UI; only the minimum needed for the fixes.
+>
+> **Fix 1 — iPhone Safari audio import (`SlowDowner.tsx > handleFile`):**
+> 1. When `file.type === ""` or doesn't start with `audio/`/`video/`, fall back to extension sniffing. Treat `.mp3 .m4a .aac .wav .flac .ogg .oga .opus` as audio and `.mp4 .mov .m4v .webm` as video.
+> 2. Replace the single combined Import button with two buttons: **"Import audio"** (`accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.opus"`) and **"Import video"** (`accept="video/*,.mp4,.mov,.m4v,.webm"`). Keep the same styling and the same empty-state copy.
+> 3. Improve the rejection toast to name the detected type/extension.
+>
+> **Fix 2 — Google in-app browser blank landing (`src/routes/index.tsx`):**
+> 1. Remove the `if (loading || user) return null;` early return. Always render the marketing hero immediately.
+> 2. Only the "Enter the shed" CTA should react to auth: when `user` is set, the `useEffect` redirect handles navigation; when `loading`, render the CTA in a disabled state with the same label (or "Loading…"); when signed out, render the normal Link.
+> 3. Do not change copy, layout, fonts, or colors. Do not add an in-app-browser banner in this pass.
+>
+> **Verification:**
+> - Typecheck/build passes.
+> - Desktop landing still redirects authenticated users to `/dashboard`.
+> - Desktop Slow Downer audio import still works.
+> - Tell me what to test on iPhone Safari and what to test by opening the site from Google search.
