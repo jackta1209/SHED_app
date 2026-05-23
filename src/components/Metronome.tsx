@@ -470,18 +470,31 @@ export function Metronome({
   useEffect(() => { runningRef.current = running; }, [running]);
   useEffect(() => {
     const onVis = () => {
+      const vs = document.visibilityState;
+      visibilityStatusRef.current = { ...visibilityStatusRef.current, lastEvent: vs, at: Date.now() };
+      dbg("visibilitychange", { state: vs, running: runningRef.current });
       if (
-        document.visibilityState === "visible" &&
+        vs === "visible" &&
         runningRef.current &&
         ctxRef.current &&
         ctxRef.current.state === "suspended"
       ) {
-        ctxRef.current.resume().catch(() => { /* harmless */ });
+        visibilityStatusRef.current = { ...visibilityStatusRef.current, resumeAttempted: true };
+        ctxRef.current.resume().then(
+          () => {
+            visibilityStatusRef.current = { ...visibilityStatusRef.current, resumeResolved: true, stateAfter: ctxRef.current?.state };
+            dbg("vis_resume_resolved", { state: ctxRef.current?.state });
+          },
+          (e: Error) => {
+            visibilityStatusRef.current = { ...visibilityStatusRef.current, resumeRejected: true, name: e?.name };
+            dbg("vis_resume_rejected", { name: e?.name, message: e?.message });
+          },
+        );
       }
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
+  }, [dbg]);
 
   useEffect(() => {
     return () => {
