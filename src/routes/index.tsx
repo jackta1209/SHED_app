@@ -6,8 +6,12 @@ export const Route = createFileRoute("/")({
   component: Landing,
   head: () => ({
     meta: [
-      { title: "SHED — Focused practice for musicians" },
-      { name: "description", content: "A focused practice space for musicians. Plan, practice, track, reflect, adjust." },
+      { title: "SHED — The Practice Workspace for Musicians" },
+      { name: "description", content: "SHED brings your practice tools into one focused workspace — timer, journal, metronome, slow downer, reader, analytics, AI, and distraction tracking." },
+      { property: "og:title", content: "SHED — The Practice Workspace for Musicians" },
+      { property: "og:description", content: "SHED brings your practice tools into one focused workspace — timer, journal, metronome, slow downer, reader, analytics, AI, and distraction tracking." },
+      { name: "twitter:title", content: "SHED — The Practice Workspace for Musicians" },
+      { name: "twitter:description", content: "SHED brings your practice tools into one focused workspace — timer, journal, metronome, slow downer, reader, analytics, AI, and distraction tracking." },
     ],
   }),
 });
