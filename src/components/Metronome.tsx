@@ -1241,12 +1241,18 @@ function DebugPanel(props: {
         <pre className="whitespace-pre-wrap">{JSON.stringify(props.lastSound, null, 1)}</pre>
       </details>
 
-      <details className="mb-1">
+      <details open className="mb-1">
         <summary className="cursor-pointer text-yellow-400">Gain / output</summary>
-        <div className={row}><span>masterGain</span><span>{String(props.masterGainExists)}</span></div>
-        <div className={row}><span>volume</span><span>{props.volume.toFixed(2)}</span></div>
-        <div className={row}><span>muted</span><span>{String(props.muted)}</span></div>
-        <div className={row}><span>sound</span><span>{props.sound}</span></div>
+        <div className={row}><span>masterGain exists</span><span>{String(props.masterGainExists)}</span></div>
+        <div className={row}><span>masterGain.value</span><span>{props.masterGainValue !== null ? props.masterGainValue.toFixed(3) : "—"}</span></div>
+        <div className={row}><span>masterGain → destination</span><span>{props.masterGainExists ? "yes (wired in ensureCtx)" : "no"}</span></div>
+        <div className={row}><span>mutedRef</span><span>{String(props.muted)}</span></div>
+        <div className={row}><span>volumeRef</span><span>{props.volume.toFixed(2)}</span></div>
+        <div className={row}><span>UI volume</span><span>{Math.round(props.volume * 100)}%</span></div>
+        <div className={row}><span>selected sound</span><span>{props.sound}</span></div>
+        <div className={row}><span>metronome routing</span><span>osc → masterGain → destination</span></div>
+        <div className={row}><span>Test Direct Beep routing</span><span>osc → dedicated gain → destination (BYPASS)</span></div>
+        <div className={row}><span>HTMLAudio routing</span><span>&lt;audio&gt; element (no Web Audio)</span></div>
       </details>
 
       <details className="mb-1">
