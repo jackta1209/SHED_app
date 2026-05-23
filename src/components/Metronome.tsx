@@ -343,6 +343,10 @@ export function Metronome({
   const scheduler = useCallback(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
+    if (debugOnRef.current) {
+      schedulerTickCountRef.current += 1;
+      lastSchedulerTickRef.current = Date.now();
+    }
     const sub = subdivisionRef.current;
     while (nextNoteTimeRef.current < ctx.currentTime + SCHEDULE_AHEAD) {
       const t = nextNoteTimeRef.current;
