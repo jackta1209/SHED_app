@@ -110,20 +110,36 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
     }
   }, [speed, mediaUrl, mediaType]);
 
+  function detectKind(file: File): "audio" | "video" | null {
+    const t = (file.type || "").toLowerCase();
+    if (t.startsWith("audio/")) return "audio";
+    if (t.startsWith("video/")) return "video";
+    // iOS Safari / Files / iCloud often returns an empty `type`.
+    // Fall back to extension sniffing.
+    const name = (file.name || "").toLowerCase();
+    const ext = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1) : "";
+    const audioExts = ["mp3", "m4a", "aac", "wav", "flac", "ogg", "oga", "opus", "aiff", "aif"];
+    const videoExts = ["mp4", "mov", "m4v", "webm", "qt"];
+    if (audioExts.includes(ext)) return "audio";
+    if (videoExts.includes(ext)) return "video";
+    return null;
+  }
+
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const isAudio = file.type.startsWith("audio/");
-    const isVideo = file.type.startsWith("video/");
-    if (!isAudio && !isVideo) {
-      toast.error("Unsupported file. Please choose an audio or video file.");
+    const kind = detectKind(file);
+    if (!kind) {
+      const hint = file.type || (file.name.includes(".") ? `.${file.name.split(".").pop()}` : "unknown");
+      toast.error(`Unsupported file (${hint}). Choose an audio (mp3/m4a/wav/aac) or video (mp4/mov) file.`);
+      e.target.value = "";
       return;
     }
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     const url = URL.createObjectURL(file);
     objectUrlRef.current = url;
     setMediaUrl(url);
-    setMediaType(isAudio ? "audio" : "video");
+    setMediaType(kind);
     setFileName(file.name);
     setCurrentTime(0);
     setDuration(0);
@@ -135,6 +151,7 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
     setSpeed(1.0);
     e.target.value = "";
   }
+
 
   function togglePlay() {
     const el = getMedia();
