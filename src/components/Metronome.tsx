@@ -1185,14 +1185,22 @@ function DebugPanel(props: {
       style={{ zIndex: 9999 }}
       className="fixed bottom-0 left-0 right-0 max-h-[55vh] overflow-auto border-t border-yellow-500 bg-black/95 p-3 font-mono text-[10px] leading-tight text-yellow-200"
     >
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <span className="font-bold text-yellow-400">🎛 Audio Debug (?debugAudio=1)</span>
-        <button
-          onClick={props.onTestBeep}
-          className="rounded bg-yellow-500 px-3 py-1 text-xs font-bold text-black"
-        >
-          ▶ Test Direct Beep
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={props.onTestBeep}
+            className="rounded bg-yellow-500 px-3 py-1 text-xs font-bold text-black"
+          >
+            ▶ Test Direct Beep
+          </button>
+          <button
+            onClick={props.onTestHtmlAudio}
+            className="rounded bg-yellow-300 px-3 py-1 text-xs font-bold text-black"
+          >
+            ▶ Test HTMLAudio Beep
+          </button>
+        </div>
       </div>
 
       <details open className="mb-1">
