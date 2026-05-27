@@ -210,7 +210,7 @@ function ActiveSession() {
       alertedRef.current.one = true;
       fire("1 minute left — finish strong.");
     }
-    if (!alertedRef.current.done && remaining === 0) {
+    if (!alertedRef.current.done && remaining === 0 && totalSeconds > 0) {
       alertedRef.current.done = true;
       fire("Session complete — time to reflect.");
     }
