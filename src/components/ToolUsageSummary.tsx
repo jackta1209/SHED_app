@@ -54,6 +54,54 @@ function arrPreview(v: unknown, max = 6): string | null {
   return `${items.slice(0, max).join(", ")} +${items.length - max} more`;
 }
 
+function uniqStrs(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const seen = new Set<string>();
+  for (const x of v) {
+    if (isStringy(x)) {
+      const s = String(x).trim();
+      if (s) seen.add(s);
+    }
+  }
+  return Array.from(seen);
+}
+
+function uniqPreview(v: unknown, max = 4): string | null {
+  const items = uniqStrs(v);
+  if (!items.length) return null;
+  if (items.length <= max) return items.join(", ");
+  return `${items.slice(0, max).join(", ")} +${items.length - max} more`;
+}
+
+function bpmSummary(v: unknown): string | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  const nums = v
+    .map((x) => (typeof x === "number" ? x : Number(x)))
+    .filter((n) => Number.isFinite(n)) as number[];
+  if (!nums.length) return null;
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  if (min === max) return `${min} BPM`;
+  return `${min}–${max} BPM`;
+}
+
+// Summarize beat/accent pattern arrays without dumping the raw array, which
+// can be hundreds of chars and break mobile layout.
+function patternSummary(v: unknown): string | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  // beat_patterns_used may itself be an array of arrays (one entry per
+  // pattern change) or a single flat array of beat states.
+  const isNested = v.some((x) => Array.isArray(x));
+  if (isNested) {
+    const count = v.length;
+    return count > 1 ? "Multiple patterns used" : "Custom pattern used";
+  }
+  const hasAccent = v.some(
+    (x) => typeof x === "string" && /accent|off/i.test(x),
+  );
+  return hasAccent ? "Accent changes used" : "Custom pattern used";
+}
+
 interface DetailLine {
   label: string;
   value: string;
