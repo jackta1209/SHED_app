@@ -908,15 +908,28 @@ function MetronomeBody(p: BodyProps) {
       <div className="mt-4">
         <p className="mb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Presets</p>
         <div className="flex flex-wrap gap-1">
-          {PRESETS.map((preset) => (
-            <button
-              key={preset.name}
-              onClick={() => p.onPreset(preset)}
-              className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:border-primary hover:text-primary"
-            >
-              {preset.name}
-            </button>
-          ))}
+          {PRESETS.map((preset) => {
+            const isActive =
+              preset.num === p.num &&
+              preset.den === p.den &&
+              preset.sub === p.subdivision &&
+              preset.beats.length === p.beats.length &&
+              preset.beats.every((b, i) => b === p.beats[i]);
+            return (
+              <button
+                key={preset.name}
+                onClick={() => p.onPreset(preset)}
+                aria-pressed={isActive}
+                className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+                  isActive
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border text-muted-foreground hover:border-primary hover:text-primary"
+                }`}
+              >
+                {preset.name}
+              </button>
+            );
+          })}
         </div>
       </div>
 
