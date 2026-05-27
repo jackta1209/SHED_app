@@ -87,6 +87,7 @@ function NewSession() {
   return (
     <AppLayout>
       <BackButton fallback="/dashboard" />
+      <ActiveSessionBanner />
       <PageHeader
         eyebrow="Plan"
         title="Set the session."
