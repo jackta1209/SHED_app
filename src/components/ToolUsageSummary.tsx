@@ -223,14 +223,14 @@ export function ToolUsageSummary({
           return (
             <li
               key={tool}
-              className="rounded-xl border border-border bg-card p-3"
+              className="min-w-0 max-w-full overflow-hidden rounded-xl border border-border bg-card p-3"
             >
-              <div className="flex items-center justify-between gap-2">
-                <p className="flex items-center gap-2 text-sm">
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <p className="flex min-w-0 items-center gap-2 text-sm">
                   <ToolIcon name={tool} />
-                  <span>{TOOL_LABEL[tool] ?? tool}</span>
+                  <span className="min-w-0 truncate">{TOOL_LABEL[tool] ?? tool}</span>
                 </p>
-                <p className="font-mono text-xs text-muted-foreground">
+                <p className="shrink-0 font-mono text-xs text-muted-foreground">
                   {fmtDuration(totalSec)}
                 </p>
               </div>
@@ -246,10 +246,10 @@ export function ToolUsageSummary({
                   {details.map((d) => (
                     <div
                       key={d[0]}
-                      className="flex flex-wrap items-baseline gap-x-2 text-xs"
+                      className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-xs"
                     >
-                      <dt className="text-muted-foreground">{d[0]}</dt>
-                      <dd className="break-words text-foreground/90">
+                      <dt className="shrink-0 text-muted-foreground">{d[0]}</dt>
+                      <dd className="min-w-0 max-w-full break-words text-foreground/90">
                         {d[1]}
                       </dd>
                     </div>
