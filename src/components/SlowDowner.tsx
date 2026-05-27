@@ -238,6 +238,7 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
               type="file"
               accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.aiff,.aif"
               className="hidden"
+              onClick={() => markImportIntent()}
               onChange={handleFile}
             />
             <span className="inline-flex items-center gap-1">
@@ -249,6 +250,7 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
               type="file"
               accept="video/*,.mp4,.mov,.m4v,.webm"
               className="hidden"
+              onClick={() => markImportIntent()}
               onChange={handleFile}
             />
             <span className="inline-flex items-center gap-1">
