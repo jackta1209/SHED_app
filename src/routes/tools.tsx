@@ -6,6 +6,7 @@ import { Metronome } from "@/components/Metronome";
 import { SlowDowner } from "@/components/SlowDowner";
 import { SheetMusicReader } from "@/components/SheetMusicReader";
 import { BackButton } from "@/components/BackButton";
+import { ActiveSessionBanner } from "@/components/ActiveSessionBanner";
 
 export const Route = createFileRoute("/tools")({
   component: () => <AuthGate><Tools /></AuthGate>,
