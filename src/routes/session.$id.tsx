@@ -30,6 +30,7 @@ import { SlowDowner } from "@/components/SlowDowner";
 import { SheetMusicReader } from "@/components/SheetMusicReader";
 import { AssistantChat, SESSION_QUICK_ACTIONS } from "@/components/AssistantChat";
 import { ToolSessionContext, finalizeOpenToolUsage } from "@/lib/tool-usage";
+import { isInImportGrace } from "@/lib/import-grace";
 
 import { AuthGate } from "@/components/AuthGate";
 
@@ -165,6 +166,8 @@ function ActiveSession() {
     if (!isActiveSessionRoute) return;
     function onHidden() {
       if (document.visibilityState === "hidden") {
+        // Don't count legitimate file-import app-switches as distractions.
+        if (isInImportGrace()) return;
         setDistractions((d) => d + 1);
         logExit("tab_hidden");
         if (strict) toast.warning("Stay in the session.");
@@ -238,30 +241,37 @@ function ActiveSession() {
     return `${Math.floor(e / 60)}:${(e % 60).toString().padStart(2, "0")} into session`;
   }
 
+  const savingNoteRef = useRef(false);
   async function saveQuickNote() {
     if (!user || !session) return;
+    if (savingNoteRef.current) return;
     const content = noteDraft.trim();
     if (!content) return;
-    const profile = await profileStore.get(user.id);
-    const now = new Date();
-    const title = `Quick Note — ${now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
-    await journalStore.add({
-      user_id: user.id,
-      session_id: session.id,
-      entry_type: "quick_note",
-      title,
-      content,
-      category: session.practice_category,
-      instrument: profile?.instrument ?? null,
-      session_elapsed_seconds: elapsedSeconds(),
-      tempo: null,
-      duration_minutes: null,
-      next_step: null,
-    });
-    const notes = await journalStore.forSession(user.id, session.id);
-    setSessionNotes(notes);
-    setNoteDraft("");
-    toast.success("Note saved to journal");
+    savingNoteRef.current = true;
+    try {
+      const profile = await profileStore.get(user.id);
+      const now = new Date();
+      const title = `Quick Note — ${now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+      await journalStore.add({
+        user_id: user.id,
+        session_id: session.id,
+        entry_type: "quick_note",
+        title,
+        content,
+        category: session.practice_category,
+        instrument: profile?.instrument ?? null,
+        session_elapsed_seconds: elapsedSeconds(),
+        tempo: null,
+        duration_minutes: null,
+        next_step: null,
+      });
+      const notes = await journalStore.forSession(user.id, session.id);
+      setSessionNotes(notes);
+      setNoteDraft("");
+      toast.success("Note saved to journal");
+    } finally {
+      savingNoteRef.current = false;
+    }
   }
 
   async function completeSession(reason: "manual_finish" | "timer_complete") {

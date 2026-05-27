@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { Waveform } from "@/components/Waveform";
 import { FullscreenShell, FullscreenButton } from "@/components/FullscreenShell";
+import { markImportIntent } from "@/lib/import-grace";
 
 type Marker = { id: string; label: string; time: number };
 
@@ -237,6 +238,7 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
               type="file"
               accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.aiff,.aif"
               className="hidden"
+              onClick={() => markImportIntent()}
               onChange={handleFile}
             />
             <span className="inline-flex items-center gap-1">
@@ -248,6 +250,7 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
               type="file"
               accept="video/*,.mp4,.mov,.m4v,.webm"
               className="hidden"
+              onClick={() => markImportIntent()}
               onChange={handleFile}
             />
             <span className="inline-flex items-center gap-1">
@@ -273,6 +276,7 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
                 type="file"
                 accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.aiff,.aif"
                 className="hidden"
+                onClick={() => markImportIntent()}
                 onChange={handleFile}
               />
             </label>
@@ -283,6 +287,7 @@ export function SlowDowner({ compact = false, onInsertTimestamp }: SlowDownerPro
                 type="file"
                 accept="video/*,.mp4,.mov,.m4v,.webm"
                 className="hidden"
+                onClick={() => markImportIntent()}
                 onChange={handleFile}
               />
             </label>

@@ -26,6 +26,7 @@ import {
 } from "@/lib/sheet-music-storage";
 import { FullscreenShell, FullscreenButton } from "@/components/FullscreenShell";
 import { useToolUsageLogger } from "@/lib/tool-usage";
+import { markImportIntent } from "@/lib/import-grace";
 
 // Configure pdf.js worker. Use the bundled pdfjs-dist version (must match the
 // version react-pdf depends on — pinned in package.json) so the API and
@@ -265,7 +266,7 @@ export function SheetMusicReader() {
             onChange={onPickFile}
             className="hidden"
           />
-          <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+          <Button size="sm" variant="secondary" onClick={() => { markImportIntent(); fileInputRef.current?.click(); }}>
             <Upload size={12} className="mr-1" /> Import
           </Button>
           <FullscreenButton active={fullscreen} onToggle={() => setFullscreen((v) => !v)} />
