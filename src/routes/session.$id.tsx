@@ -242,7 +242,6 @@ function ActiveSession() {
     return `${Math.floor(e / 60)}:${(e % 60).toString().padStart(2, "0")} into session`;
   }
 
-  const savingNoteRef = useRef(false);
   async function saveQuickNote() {
     if (!user || !session) return;
     if (savingNoteRef.current) return;
