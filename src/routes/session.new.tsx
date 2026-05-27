@@ -28,12 +28,13 @@ export const Route = createFileRoute("/session/new")({
 });
 
 const DURATIONS = [10, 20, 30, 45, 60, 90];
+const MAX_CATEGORIES = 5;
 
 function NewSession() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [duration, setDuration] = useState(30);
-  const [category, setCategory] = useState<string>("Technique");
+  const [selectedCats, setSelectedCats] = useState<string[]>(["Technique"]);
   const [goal, setGoal] = useState("");
   const [notes, setNotes] = useState("");
   const [newCat, setNewCat] = useState("");
@@ -47,12 +48,30 @@ function NewSession() {
     settingsStore.get(user.id).then((s) => setNextFocus(s.next_focus));
   }, [user]);
 
+  function toggleCat(c: string) {
+    setSelectedCats((prev) => {
+      if (prev.includes(c)) {
+        // Keep at least one selected
+        if (prev.length === 1) return prev;
+        return prev.filter((x) => x !== c);
+      }
+      if (prev.length >= MAX_CATEGORIES) {
+        toast.message(`You can choose up to ${MAX_CATEGORIES} topics.`);
+        return prev;
+      }
+      return [...prev, c];
+    });
+  }
+
   async function start(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
+    if (selectedCats.length === 0) {
+      toast.error("Choose at least one topic.");
+      return;
+    }
     setBusy(true);
     try {
-      // Prevent duplicate active sessions (e.g. second tab, double-tap).
       const existing = await sessionStore.findActive(user.id);
       if (existing) {
         toast.message("You already have an active session. Resuming it instead.");
@@ -60,12 +79,24 @@ function NewSession() {
         return;
       }
 
+      const primary = selectedCats[0];
+      const secondaries = selectedCats.slice(1);
+      // Schema stores a single practice_category. Persist primary there for
+      // analytics/history compatibility, and prepend secondary focus tags to
+      // pre_session_notes so the info isn't lost.
+      const notesParts: string[] = [];
+      if (secondaries.length > 0) {
+        notesParts.push(`Also focusing on: ${secondaries.join(", ")}`);
+      }
+      if (notes.trim()) notesParts.push(notes.trim());
+      const composedNotes = notesParts.join("\n\n");
+
       const created = await sessionStore.create({
         user_id: user.id,
         planned_duration_minutes: duration,
-        practice_category: category,
+        practice_category: primary,
         session_goal: goal,
-        pre_session_notes: notes,
+        pre_session_notes: composedNotes,
       });
       if (!created) {
         toast.error("Could not start session.");
@@ -82,9 +113,14 @@ function NewSession() {
 
   async function addCategory() {
     if (!user || !newCat.trim()) return;
-    await customCategoriesStore.add(user.id, newCat.trim());
+    const name = newCat.trim();
+    await customCategoriesStore.add(user.id, name);
     setCats(await allCategories(user.id));
-    setCategory(newCat.trim());
+    setSelectedCats((prev) => {
+      if (prev.includes(name)) return prev;
+      if (prev.length >= MAX_CATEGORIES) return prev;
+      return [...prev, name];
+    });
     setNewCat("");
   }
 
@@ -95,7 +131,7 @@ function NewSession() {
       <PageHeader
         eyebrow="Plan"
         title="Set the session."
-        subtitle="Choose your duration, category, and a single clear goal."
+        subtitle="Choose your duration, topics, and a single clear goal."
       />
 
       {nextFocus && (
@@ -117,7 +153,14 @@ function NewSession() {
 
       <form onSubmit={start} className="space-y-6">
         <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Duration</Label>
+          <div className="flex items-baseline justify-between">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+              Duration
+            </Label>
+            <p className="text-xs tabular-nums text-muted-foreground">
+              <span className="font-mono text-sm text-foreground">{duration}</span> min
+            </p>
+          </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
             {DURATIONS.map((d) => (
               <button
@@ -138,22 +181,39 @@ function NewSession() {
             value={duration}
             onChange={(e) => setDuration(Number(e.target.value))}
             className="mt-4 w-full accent-[var(--color-primary)]"
+            aria-label="Session duration in minutes"
           />
+          <p className="mt-1 text-center text-[11px] text-muted-foreground">
+            Duration: {duration} {duration === 1 ? "minute" : "minutes"}
+          </p>
         </div>
 
         <div>
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Category</Label>
+          <div className="flex items-baseline justify-between">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+              Topics
+            </Label>
+            <p className="text-[11px] text-muted-foreground">
+              {selectedCats.length}/{MAX_CATEGORIES} · first is primary
+            </p>
+          </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            {cats.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setCategory(c)}
-                className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${category === c ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}
-              >
-                {c}
-              </button>
-            ))}
+            {cats.map((c) => {
+              const isSelected = selectedCats.includes(c);
+              const isPrimary = selectedCats[0] === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => toggleCat(c)}
+                  className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}
+                  aria-pressed={isSelected}
+                >
+                  {isPrimary && selectedCats.length > 1 ? "★ " : ""}
+                  {c}
+                </button>
+              );
+            })}
           </div>
           <div className="mt-2 flex gap-2">
             <Input
