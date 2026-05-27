@@ -17,6 +17,7 @@ function Tools() {
   return (
     <AppLayout>
       <BackButton fallback="/dashboard" />
+      <ActiveSessionBanner label="Practice session in progress." />
       <PageHeader eyebrow="Workspace" title="Tools" subtitle="A growing collection of focused practice utilities." />
       <Section title="Available">
         <Link
