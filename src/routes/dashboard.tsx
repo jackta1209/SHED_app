@@ -70,17 +70,51 @@ function Dashboard() {
       </header>
 
       {active && (
-        <Link
-          to="/session/$id"
-          params={{ id: active.session_id }}
-          className="mb-4 flex items-center justify-between rounded-xl border border-primary/40 bg-primary/10 p-4"
-        >
-          <div>
-            <p className="text-[11px] uppercase tracking-wider text-primary">Session in progress</p>
-            <p className="mt-1 text-sm">Tap to resume</p>
-          </div>
-          <ArrowRight size={16} className="text-primary" />
-        </Link>
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 p-4">
+          <Link
+            to="/session/$id"
+            params={{ id: active.session_id }}
+            className="flex min-w-0 flex-1 items-center justify-between gap-2"
+          >
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-wider text-primary">
+                Session in progress
+              </p>
+              <p className="mt-1 text-sm">Tap to resume</p>
+            </div>
+            <ArrowRight size={16} className="shrink-0 text-primary" />
+          </Link>
+          <button
+            type="button"
+            onClick={async () => {
+              if (!user) return;
+              if (
+                !confirm(
+                  "Discard this practice session? You can start a new one right after.",
+                )
+              )
+                return;
+              try {
+                activeSessionStore.clear(user.id);
+              } catch {
+                /* ignore */
+              }
+              try {
+                await sessionStore.update(
+                  active.session_id,
+                  { status: "abandoned", end_time: new Date().toISOString() },
+                  user.id,
+                );
+              } catch {
+                /* ignore */
+              }
+              setActive(null);
+            }}
+            className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Discard
+          </button>
+        </div>
       )}
 
       <div className="mb-5 rounded-2xl border border-border bg-card p-5">

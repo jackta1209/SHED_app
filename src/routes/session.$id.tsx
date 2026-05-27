@@ -66,6 +66,7 @@ function ActiveSession() {
   const autoFinishBlockedRef = useRef(false);
   const alertedRef = useRef({ ten: false, one: false, done: false });
   const startedAtRef = useRef<number>(Date.now());
+  const savingNoteRef = useRef(false);
   const isActiveSessionRoute = location.pathname === `/session/${id}`;
 
   // Load session + restore active state
@@ -209,7 +210,7 @@ function ActiveSession() {
       alertedRef.current.one = true;
       fire("1 minute left — finish strong.");
     }
-    if (!alertedRef.current.done && remaining === 0) {
+    if (!alertedRef.current.done && remaining === 0 && totalSeconds > 0) {
       alertedRef.current.done = true;
       fire("Session complete — time to reflect.");
     }
@@ -241,7 +242,6 @@ function ActiveSession() {
     return `${Math.floor(e / 60)}:${(e % 60).toString().padStart(2, "0")} into session`;
   }
 
-  const savingNoteRef = useRef(false);
   async function saveQuickNote() {
     if (!user || !session) return;
     if (savingNoteRef.current) return;
