@@ -30,6 +30,7 @@ import { SlowDowner } from "@/components/SlowDowner";
 import { SheetMusicReader } from "@/components/SheetMusicReader";
 import { AssistantChat, SESSION_QUICK_ACTIONS } from "@/components/AssistantChat";
 import { ToolSessionContext, finalizeOpenToolUsage } from "@/lib/tool-usage";
+import { isInImportGrace } from "@/lib/import-grace";
 
 import { AuthGate } from "@/components/AuthGate";
 
