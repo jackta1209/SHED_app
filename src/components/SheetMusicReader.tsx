@@ -266,7 +266,7 @@ export function SheetMusicReader() {
             onChange={onPickFile}
             className="hidden"
           />
-          <Button size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+          <Button size="sm" variant="secondary" onClick={() => { markImportIntent(); fileInputRef.current?.click(); }}>
             <Upload size={12} className="mr-1" /> Import
           </Button>
           <FullscreenButton active={fullscreen} onToggle={() => setFullscreen((v) => !v)} />
