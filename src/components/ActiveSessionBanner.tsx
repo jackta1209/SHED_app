@@ -7,24 +7,47 @@ import { findActiveSessionPointer } from "@/lib/active-session";
  * Shows a "Return to Session" banner if an active practice session exists in
  * localStorage. Rendered on pages where a user could be stranded away from
  * their in-progress session (e.g. /session/new, /tools).
+ *
+ * MUST fail closed: any error during detection renders nothing, so the host
+ * page (especially /session/new "Start session") is never blocked.
  */
 export function ActiveSessionBanner({ label }: { label?: string }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     const check = () => {
-      const ptr = findActiveSessionPointer();
-      setSessionId(ptr?.sessionId ?? null);
+      try {
+        const ptr = findActiveSessionPointer();
+        const id =
+          ptr && typeof ptr.sessionId === "string" && ptr.sessionId.trim().length > 0
+            ? ptr.sessionId
+            : null;
+        setSessionId(id);
+      } catch {
+        setSessionId(null);
+      }
     };
     check();
     const onStorage = (e: StorageEvent) => {
-      if (!e.key || e.key.startsWith("shed.active.")) check();
+      try {
+        if (!e.key || e.key.startsWith("shed.active.")) check();
+      } catch {
+        /* ignore */
+      }
     };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("focus", check);
+    try {
+      window.addEventListener("storage", onStorage);
+      window.addEventListener("focus", check);
+    } catch {
+      /* ignore */
+    }
     return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("focus", check);
+      try {
+        window.removeEventListener("storage", onStorage);
+        window.removeEventListener("focus", check);
+      } catch {
+        /* ignore */
+      }
     };
   }, []);
 

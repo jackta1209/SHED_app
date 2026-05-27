@@ -51,29 +51,33 @@ function NewSession() {
     e.preventDefault();
     if (!user) return;
     setBusy(true);
+    try {
+      // Prevent duplicate active sessions (e.g. second tab, double-tap).
+      const existing = await sessionStore.findActive(user.id);
+      if (existing) {
+        toast.message("You already have an active session. Resuming it instead.");
+        navigate({ to: "/session/$id", params: { id: existing.id } });
+        return;
+      }
 
-    // Prevent duplicate active sessions (e.g. second tab, double-tap).
-    const existing = await sessionStore.findActive(user.id);
-    if (existing) {
+      const created = await sessionStore.create({
+        user_id: user.id,
+        planned_duration_minutes: duration,
+        practice_category: category,
+        session_goal: goal,
+        pre_session_notes: notes,
+      });
+      if (!created) {
+        toast.error("Could not start session.");
+        return;
+      }
+      navigate({ to: "/session/$id", params: { id: created.id } });
+    } catch (err) {
+      console.error("session.new start", err);
+      toast.error("Could not start session. Please try again.");
+    } finally {
       setBusy(false);
-      toast.message("You already have an active session. Resuming it instead.");
-      navigate({ to: "/session/$id", params: { id: existing.id } });
-      return;
     }
-
-    const created = await sessionStore.create({
-      user_id: user.id,
-      planned_duration_minutes: duration,
-      practice_category: category,
-      session_goal: goal,
-      pre_session_notes: notes,
-    });
-    setBusy(false);
-    if (!created) {
-      toast.error("Could not start session.");
-      return;
-    }
-    navigate({ to: "/session/$id", params: { id: created.id } });
   }
 
   async function addCategory() {
