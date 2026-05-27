@@ -166,6 +166,8 @@ function ActiveSession() {
     if (!isActiveSessionRoute) return;
     function onHidden() {
       if (document.visibilityState === "hidden") {
+        // Don't count legitimate file-import app-switches as distractions.
+        if (isInImportGrace()) return;
         setDistractions((d) => d + 1);
         logExit("tab_hidden");
         if (strict) toast.warning("Stay in the session.");
