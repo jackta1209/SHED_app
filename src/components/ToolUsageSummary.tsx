@@ -54,6 +54,54 @@ function arrPreview(v: unknown, max = 6): string | null {
   return `${items.slice(0, max).join(", ")} +${items.length - max} more`;
 }
 
+function uniqStrs(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const seen = new Set<string>();
+  for (const x of v) {
+    if (isStringy(x)) {
+      const s = String(x).trim();
+      if (s) seen.add(s);
+    }
+  }
+  return Array.from(seen);
+}
+
+function uniqPreview(v: unknown, max = 4): string | null {
+  const items = uniqStrs(v);
+  if (!items.length) return null;
+  if (items.length <= max) return items.join(", ");
+  return `${items.slice(0, max).join(", ")} +${items.length - max} more`;
+}
+
+function bpmSummary(v: unknown): string | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  const nums = v
+    .map((x) => (typeof x === "number" ? x : Number(x)))
+    .filter((n) => Number.isFinite(n)) as number[];
+  if (!nums.length) return null;
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  if (min === max) return `${min} BPM`;
+  return `${min}–${max} BPM`;
+}
+
+// Summarize beat/accent pattern arrays without dumping the raw array, which
+// can be hundreds of chars and break mobile layout.
+function patternSummary(v: unknown): string | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  // beat_patterns_used may itself be an array of arrays (one entry per
+  // pattern change) or a single flat array of beat states.
+  const isNested = v.some((x) => Array.isArray(x));
+  if (isNested) {
+    const count = v.length;
+    return count > 1 ? "Multiple patterns used" : "Custom pattern used";
+  }
+  const hasAccent = v.some(
+    (x) => typeof x === "string" && /accent|off/i.test(x),
+  );
+  return hasAccent ? "Accent changes used" : "Custom pattern used";
+}
+
 interface DetailLine {
   label: string;
   value: string;
@@ -79,11 +127,15 @@ function detailsFor(row: ToolUsageRow): DetailLine[] {
   };
 
   if (row.tool_name === "metronome") {
-    push("BPMs", d.bpm_values_used);
-    push("Time signatures", d.time_signatures_used);
-    push("Subdivisions", d.subdivisions_used);
+    const bpm = bpmSummary(d.bpm_values_used);
+    if (bpm) out.push({ label: "BPM", value: bpm });
+    const ts = uniqPreview(d.time_signatures_used);
+    if (ts) out.push({ label: "Time signatures", value: ts });
+    const sub = uniqPreview(d.subdivisions_used);
+    if (sub) out.push({ label: "Subdivisions", value: sub });
     push("Sound", d.sound_used);
-    push("Beat patterns", d.beat_patterns_used);
+    const pat = patternSummary(d.beat_patterns_used);
+    if (pat) out.push({ label: "Beat patterns", value: pat });
     if (d.gap_mode_used) {
       push(
         "Gap trainer",
@@ -171,14 +223,14 @@ export function ToolUsageSummary({
           return (
             <li
               key={tool}
-              className="rounded-xl border border-border bg-card p-3"
+              className="min-w-0 max-w-full overflow-hidden rounded-xl border border-border bg-card p-3"
             >
-              <div className="flex items-center justify-between gap-2">
-                <p className="flex items-center gap-2 text-sm">
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <p className="flex min-w-0 items-center gap-2 text-sm">
                   <ToolIcon name={tool} />
-                  <span>{TOOL_LABEL[tool] ?? tool}</span>
+                  <span className="min-w-0 truncate">{TOOL_LABEL[tool] ?? tool}</span>
                 </p>
-                <p className="font-mono text-xs text-muted-foreground">
+                <p className="shrink-0 font-mono text-xs text-muted-foreground">
                   {fmtDuration(totalSec)}
                 </p>
               </div>
@@ -194,10 +246,10 @@ export function ToolUsageSummary({
                   {details.map((d) => (
                     <div
                       key={d[0]}
-                      className="flex flex-wrap items-baseline gap-x-2 text-xs"
+                      className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-xs"
                     >
-                      <dt className="text-muted-foreground">{d[0]}</dt>
-                      <dd className="break-words text-foreground/90">
+                      <dt className="shrink-0 text-muted-foreground">{d[0]}</dt>
+                      <dd className="min-w-0 max-w-full break-words text-foreground/90">
                         {d[1]}
                       </dd>
                     </div>

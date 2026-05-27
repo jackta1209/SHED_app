@@ -6,6 +6,7 @@ import { Metronome } from "@/components/Metronome";
 import { SlowDowner } from "@/components/SlowDowner";
 import { SheetMusicReader } from "@/components/SheetMusicReader";
 import { BackButton } from "@/components/BackButton";
+import { ActiveSessionBanner } from "@/components/ActiveSessionBanner";
 
 export const Route = createFileRoute("/tools")({
   component: () => <AuthGate><Tools /></AuthGate>,
@@ -16,6 +17,7 @@ function Tools() {
   return (
     <AppLayout>
       <BackButton fallback="/dashboard" />
+      <ActiveSessionBanner label="Practice session in progress." />
       <PageHeader eyebrow="Workspace" title="Tools" subtitle="A growing collection of focused practice utilities." />
       <Section title="Available">
         <Link
