@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { Waveform } from "@/components/Waveform";
 import { FullscreenShell, FullscreenButton } from "@/components/FullscreenShell";
+import { markImportIntent } from "@/lib/import-grace";
 
 type Marker = { id: string; label: string; time: number };
 
