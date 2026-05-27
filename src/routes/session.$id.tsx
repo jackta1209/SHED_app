@@ -436,7 +436,7 @@ function ActiveSession() {
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <div className="relative rounded-xl border border-border bg-card p-3">
+          <div className="rounded-xl border border-border bg-card p-3">
             <button
               type="button"
               onClick={() => setDistractions((d) => d + 1)}
@@ -448,18 +448,6 @@ function ActiveSession() {
               </div>
               <p className="mt-1 font-mono text-2xl">{distractions}</p>
               <p className="text-[11px] text-muted-foreground">Tap to log · {exitAttempts} exits</p>
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDistractions((d) => Math.max(0, d - 1));
-              }}
-              disabled={distractions === 0}
-              aria-label="Undo distraction"
-              className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-sm leading-none text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
-            >
-              −
             </button>
           </div>
           <div className="rounded-xl border border-border bg-card p-3">
