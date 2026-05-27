@@ -75,8 +75,26 @@ export function useInactivityLogout(opts: {
       writeLastActive(now);
     };
 
+    const hasActiveSession = () => {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith("shed.active.")) return true;
+        }
+      } catch {
+        /* ignore */
+      }
+      return false;
+    };
+
     const check = () => {
       if (timeoutMinutes == null || timedOutRef.current) return false; // manual mode
+      // Do not log the user out while a practice session is active. Pausing the
+      // timer or leaving the screen idle during a session must not eject them.
+      if (hasActiveSession()) {
+        writeLastActive();
+        return false;
+      }
       const last = readLastActive();
       const elapsedMs = Date.now() - last;
       if (elapsedMs >= timeoutMinutes * 60_000) {
