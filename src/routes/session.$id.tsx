@@ -66,6 +66,7 @@ function ActiveSession() {
   const autoFinishBlockedRef = useRef(false);
   const alertedRef = useRef({ ten: false, one: false, done: false });
   const startedAtRef = useRef<number>(Date.now());
+  const savingNoteRef = useRef(false);
   const isActiveSessionRoute = location.pathname === `/session/${id}`;
 
   // Load session + restore active state
