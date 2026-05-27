@@ -127,11 +127,15 @@ function detailsFor(row: ToolUsageRow): DetailLine[] {
   };
 
   if (row.tool_name === "metronome") {
-    push("BPMs", d.bpm_values_used);
-    push("Time signatures", d.time_signatures_used);
-    push("Subdivisions", d.subdivisions_used);
+    const bpm = bpmSummary(d.bpm_values_used);
+    if (bpm) out.push({ label: "BPM", value: bpm });
+    const ts = uniqPreview(d.time_signatures_used);
+    if (ts) out.push({ label: "Time signatures", value: ts });
+    const sub = uniqPreview(d.subdivisions_used);
+    if (sub) out.push({ label: "Subdivisions", value: sub });
     push("Sound", d.sound_used);
-    push("Beat patterns", d.beat_patterns_used);
+    const pat = patternSummary(d.beat_patterns_used);
+    if (pat) out.push({ label: "Beat patterns", value: pat });
     if (d.gap_mode_used) {
       push(
         "Gap trainer",
