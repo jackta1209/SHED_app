@@ -85,17 +85,17 @@ function History() {
               <Link
                 to="/session/$id/summary"
                 params={{ id: s.id }}
-                className="block rounded-xl border border-border bg-card p-4 hover:bg-accent"
+                className="block min-w-0 max-w-full overflow-hidden rounded-xl border border-border bg-card p-4 hover:bg-accent"
               >
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="min-w-0 truncate text-[11px] uppercase tracking-wider text-muted-foreground">
                     {s.practice_category ?? "Practice"}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="shrink-0 text-[11px] text-muted-foreground">
                     {new Date(s.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <p className="mt-1 font-serif text-lg">{s.session_goal}</p>
+                <p className="mt-1 break-words font-serif text-lg">{s.session_goal}</p>
                 <div className="mt-3 grid grid-cols-4 gap-2 text-xs">
                   <Mini label="Min" value={`${s.practice_minutes}`} />
                   <Mini label="Focus" value={`${s.focus_rating ?? "—"}/5`} />
@@ -103,12 +103,12 @@ function History() {
                   <Mini label="Exits" value={`${s.exit_attempt_count}`} />
                 </div>
                 {s.what_improved && (
-                  <p className="mt-3 text-xs text-muted-foreground">
+                  <p className="mt-3 break-words text-xs text-muted-foreground">
                     <span className="uppercase tracking-wider">Improved:</span> {s.what_improved}
                   </p>
                 )}
                 {s.next_step && (
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 break-words text-xs text-muted-foreground">
                     <span className="uppercase tracking-wider">Next:</span> {s.next_step}
                   </p>
                 )}
