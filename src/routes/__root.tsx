@@ -56,6 +56,12 @@ function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark theme-minimal">
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@0,400;1,400&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+        />
         <HeadContent />
       </head>
       <body>
