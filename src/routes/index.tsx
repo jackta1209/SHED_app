@@ -37,7 +37,7 @@ function Landing() {
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pb-10 pt-16">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-primary" />
-          <span className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
+          <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
             SHED · v0.1
           </span>
         </div>
