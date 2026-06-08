@@ -41,9 +41,6 @@ export const Route = createRootRoute({
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/ZOUMEo30uQd3Aw3qhIQ8he3x0pg1/social-images/social-1779281437565-ChatGPT_Image_May_20,_2026,_08_48_38_AM.webp" },
     ],
     links: [
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" },
       { rel: "stylesheet", href: appCss },
     ],
   }),
@@ -56,6 +53,12 @@ function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark theme-minimal">
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@0,400;1,400&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+        />
         <HeadContent />
       </head>
       <body>
