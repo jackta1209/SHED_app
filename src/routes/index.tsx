@@ -6,11 +6,11 @@ export const Route = createFileRoute("/")({
   component: Landing,
   head: () => ({
     meta: [
-      { title: "SHED — The Practice Workspace for Musicians" },
+      { title: "Hit The Shed™ — The Practice Workspace for Musicians" },
       { name: "description", content: "SHED brings your practice tools into one focused workspace — timer, journal, metronome, slow downer, reader, analytics, AI, and distraction tracking." },
-      { property: "og:title", content: "SHED — The Practice Workspace for Musicians" },
+      { property: "og:title", content: "Hit The Shed™ — The Practice Workspace for Musicians" },
       { property: "og:description", content: "SHED brings your practice tools into one focused workspace — timer, journal, metronome, slow downer, reader, analytics, AI, and distraction tracking." },
-      { name: "twitter:title", content: "SHED — The Practice Workspace for Musicians" },
+      { name: "twitter:title", content: "Hit The Shed™ — The Practice Workspace for Musicians" },
       { name: "twitter:description", content: "SHED brings your practice tools into one focused workspace — timer, journal, metronome, slow downer, reader, analytics, AI, and distraction tracking." },
     ],
   }),
@@ -77,6 +77,9 @@ function Landing() {
 
           <p className="text-center text-xs text-muted-foreground">
             Built for developing musicians, students, and pros.
+          </p>
+          <p className="text-center text-[11px] text-muted-foreground">
+            © 2026 Jack Ta. Hit The Shed™ is a trademark of Jack Ta.
           </p>
         </div>
       </div>
