@@ -6,4 +6,8 @@
 // You can pass additional config via defineConfig({ vite: { ... } }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
-export default defineConfig();
+export default defineConfig({
+  // Force-enable the Nitro deploy plugin outside Lovable so `vite build`
+  // generates the Cloudflare Worker server entry that wrangler.jsonc points to.
+  nitro: true,
+});
