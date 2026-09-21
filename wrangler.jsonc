@@ -1,7 +1,1 @@
-{
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tanstack-start-app",
-  "compatibility_date": "2025-09-24",
-  "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry",
-}
+{"$schema":"node_modules/wrangler/config-schema.json","assets":{"binding":"ASSETS","directory":".output/public"},"compatibility_date":"2025-09-24","compatibility_flags":["nodejs_compat"],"main":".output/server/index.mjs","name":"shed","no_bundle":true,"rules":[{"globs":["**/*.mjs","**/*.js"],"type":"ESModule"}]}
